@@ -1,0 +1,62 @@
+server:
+  port: 8080
+  address: 0.0.0.0
+
+spring:
+  # 数据库配置
+  datasource:
+    url: jdbc:postgresql://localhost:5432/postgres
+    username: postgres
+    password: 123456
+    driver-class-name: org.postgresql.Driver
+  sql:
+    init:
+      mode: never
+      #mode: always
+      #schema-locations: classpath:schema.sql
+      #data-locations: classpath:data.sql
+      #continue-on-error: true  # 添加这一行，即使初始化脚本出错也继续启动
+  # Redis配置
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+      timeout: 3000ms
+  # RabbitMQ配置
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: zachary
+    password: 123456
+    virtual-host: /
+    listener:
+      simple:
+        acknowledge-mode: manual # 手动ACK
+  # WebSocket配置（默认无需额外配置，通过代码开启）
+
+# MyBatis-Plus配置adad
+
+
+mybatis-plus:
+  mapper-locations: classpath:mybatis/*.xml
+  type-aliases-package: com.campus.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# JWT配置
+jwt:
+  secret: campus-flash-match-secret-key-with-at-least-64-characters-for-hs512-algorithm-security
+  expire: 7200000 # 2小时（毫秒）
+
+# 项目配置
+campus:
+  # 开发测试环境，允许本地IP注册
+  # 使用 "10" 可以匹配所有 10.x.x.x 的 IP
+  # 使用 "127" 可以匹配本地开发环境
+  # 使用 "0" 可以匹配 IPv6 localhost
+  ip-prefix: "10"
+  event:
+    default-radius: 1000 # 事件匹配默认半径（米）
+    quit-expire: 600 # 拼单退出有效时间（10分钟，秒）

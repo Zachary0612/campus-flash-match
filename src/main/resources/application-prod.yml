@@ -1,0 +1,12 @@
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: 50
+      minimum-idle: 10
+  redis:
+    timeout: 1000ms
+  rabbitmq:
+    listener:
+      simple:
+        concurrency: 10
+        max-concurrency: 20
