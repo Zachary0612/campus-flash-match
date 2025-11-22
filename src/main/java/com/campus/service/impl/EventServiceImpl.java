@@ -3,12 +3,15 @@ package com.campus.service.impl;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.geo.Distance;
@@ -21,6 +24,7 @@ import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.campus.entity.SysUser;
@@ -43,7 +47,9 @@ import com.campus.exception.BusinessException;
 import com.campus.constant.EventConstant;
 import com.campus.constant.RedisConstant;
 import com.alibaba.fastjson.JSON;
+import com.campus.vo.CompletedEventVO;
 import com.campus.vo.EventHistoryVO;
+import com.campus.vo.EventParticipantVO;
 import com.campus.vo.NearbyEventVO;
 
 /**
@@ -142,18 +148,18 @@ public class EventServiceImpl implements EventService {
             redisUtil.hSet(eventInfoKey, "owner", userId.toString());
             redisUtil.hSet(eventInfoKey, "event_type", dto.getEventType());
             redisUtil.hSet(eventInfoKey, "title", dto.getTitle());
-            redisUtil.hSet(eventInfoKey, "target_num", dto.getTargetNum().toString());
-            redisUtil.hSet(eventInfoKey, "current_num", "1"); // 发起者默认参与
-            redisUtil.hSet(eventInfoKey, "expire_minutes", dto.getExpireMinutes().toString());
+            redisUtil.hSet(eventInfoKey, "target_num", dto.getTargetNum());
+            redisUtil.hSet(eventInfoKey, "current_num", 1); // 发起者默认参与
+            redisUtil.hSet(eventInfoKey, "expire_minutes", dto.getExpireMinutes());
             redisUtil.hSet(eventInfoKey, "ext_meta", JSON.toJSONString(dto.getExtMeta()));
             redisUtil.hSet(eventInfoKey, "create_time", createTime.toString());
             redisUtil.hSet(eventInfoKey, "expire_time", expireTime.toString());
-            // 设置过期时间（不覆盖Hash结构）
-            redisUtil.expire(eventInfoKey, expireSeconds, TimeUnit.SECONDS);
+            // 设置过期时间（不覆盖Hash结构），增加5分钟缓冲时间，确保结算时数据还存在
+            redisUtil.expire(eventInfoKey, expireSeconds + 300, TimeUnit.SECONDS);
 
             // 7.3 存储参与者集合（Set）
             redisUtil.sAdd(eventParticipantsKey, userId.toString());
-            redisUtil.expire(eventParticipantsKey, expireSeconds, TimeUnit.SECONDS);
+            redisUtil.expire(eventParticipantsKey, expireSeconds + 300, TimeUnit.SECONDS);
 
                 // 7.4 立即插入事件历史记录（解决"我的事件"显示问题）
             EventHistory eventHistory = new EventHistory();
@@ -166,7 +172,7 @@ public class EventServiceImpl implements EventService {
             eventHistory.setExpireMinutes(dto.getExpireMinutes());
             eventHistory.setExtMeta(JSON.toJSONString(dto.getExtMeta()));
             // participants字段使用数据库默认值NULL
-            eventHistory.setStatus("active"); // 活跃状态
+            eventHistory.setStatus(EventConstant.EVENT_STATUS_ACTIVE); // 活跃状态
             eventHistory.setCreateTime(createTime);
             eventHistory.setExpireTime(expireTime);
             eventHistoryMapper.insertEventHistory(eventHistory);
@@ -275,6 +281,17 @@ public class EventServiceImpl implements EventService {
             }
 
             try {
+                // 校验事件是否未过期
+                Object expireTimeObj = redisUtil.hGet(eventInfoKey, "expire_time");
+                if (expireTimeObj != null) {
+                    LocalDateTime expireTime = LocalDateTime.parse(String.valueOf(expireTimeObj));
+                    if (LocalDateTime.now().isAfter(expireTime)) {
+                        // 过期事件立即清理，避免继续显示
+                        cleanupExpiredEventData(eventId, eventType);
+                        continue; // 跳过过期事件
+                    }
+                }
+
                 // 校验事件是否未满员
                 Object currentNumObj = redisUtil.hGet(eventInfoKey, "current_num");
                 Object targetNumObj = redisUtil.hGet(eventInfoKey, "target_num");
@@ -327,99 +344,119 @@ public class EventServiceImpl implements EventService {
         String eventInfoKey = EventConstant.REDIS_KEY_EVENT_INFO + eventId;
         String eventParticipantsKey = EventConstant.REDIS_KEY_EVENT_PARTICIPANTS + eventId;
 
-        // 3. Redis事务处理并发（避免超员）
+        // 3. 检查事件是否已过期
+        if (!redisUtil.hasKey(eventInfoKey)) {
+            throw new BusinessException("事件已过期或已结算");
+        }
+
+        // 4. 检查事件是否已过期（通过过期时间）
+        Object expireTimeObj = redisUtil.hGet(eventInfoKey, "expire_time");
+        if (expireTimeObj != null) {
+            LocalDateTime expireTime = LocalDateTime.parse(String.valueOf(expireTimeObj));
+            if (LocalDateTime.now().isAfter(expireTime)) {
+                throw new BusinessException("事件已过期");
+            }
+        }
+
+        // 5. Redis事务处理并发（避免超员）
         final Boolean[] success = {false};
+        final String[] failureReason = {null}; // 记录失败原因
         final Map<Object, Object>[] eventInfoMap = new Map[1];
+        final Integer[] finalCurrentNum = new Integer[1];
+        final Integer[] finalTargetNum = new Integer[1];
         redisUtil.execute(new SessionCallback<Object>() {
             @Override
             public Object execute(RedisOperations operations) {
-                // 3.1 监控事件详情Key
+                // 5.1 监控事件详情Key和参与者Key
                 operations.watch(eventInfoKey);
+                operations.watch(eventParticipantsKey);
 
-                // 3.2 校验事件状态
+                // 5.2 校验事件状态
                 if (!operations.hasKey(eventInfoKey)) {
                     // 不在SessionCallback内部抛出异常
                     success[0] = false;
+                    failureReason[0] = "EVENT_NOT_FOUND";
                     return null;
                 }
 
-                // 3.3 获取事件信息
+                // 5.3 获取事件信息
                 eventInfoMap[0] = operations.opsForHash().entries(eventInfoKey);
-                String eventType = (String) eventInfoMap[0].get("event_type");
-                String currentNumStr = (String) eventInfoMap[0].get("current_num");
-                String targetNumStr = (String) eventInfoMap[0].get("target_num");
-                Integer currentNum = Integer.valueOf(currentNumStr);
-                Integer targetNum = Integer.valueOf(targetNumStr);
+                String eventType = String.valueOf(eventInfoMap[0].get("event_type"));
+                Object currentNumObj = eventInfoMap[0].get("current_num");
+                Object targetNumObj = eventInfoMap[0].get("target_num");
+                Integer currentNum = Integer.valueOf(String.valueOf(currentNumObj));
+                Integer targetNum = Integer.valueOf(String.valueOf(targetNumObj));
 
-                // 3.4 校验是否已参与
+                // 5.4 校验是否已参与
                 if (operations.opsForSet().isMember(eventParticipantsKey, userId.toString())) {
                     // 不在SessionCallback内部抛出异常，设置success为false
                     success[0] = false;
+                    failureReason[0] = "ALREADY_JOINED";
                     return null;
                 }
 
-                // 3.5 校验是否超员
+                // 5.5 校验是否超员
                 if (currentNum >= targetNum) {
                     // 不在SessionCallback内部抛出异常，设置success为false
                     success[0] = false;
+                    failureReason[0] = "EVENT_FULL";
                     return null;
                 }
 
-                // 3.6 信标特殊校验（仅1人可参与）
+                // 5.6 信标特殊校验（仅1人可参与）
                 if (EventConstant.EVENT_TYPE_BEACON.equals(eventType) && currentNum >= 1) {
                     // 不在SessionCallback内部抛出异常，设置success为false
                     success[0] = false;
+                    failureReason[0] = "BEACON_FULL";
                     return null;
                 }
 
-                // 3.7 开启事务
+                // 5.7 开启事务
                 operations.multi();
                 // 人数+1
                 operations.opsForHash().increment(eventInfoKey, "current_num", 1);
                 // 添加到参与者集合
                 operations.opsForSet().add(eventParticipantsKey, userId.toString());
 
-                // 3.8 执行事务
+                // 5.8 执行事务
                 List<Object> result = operations.exec();
                 success[0] = (result != null && !result.isEmpty());
+                
+                // 5.9 如果事务成功，更新本地变量
+                if (success[0]) {
+                    // result.get(0) 是 increment 的返回值 (Long)
+                    finalCurrentNum[0] = ((Long) result.get(0)).intValue();
+                    finalTargetNum[0] = targetNum; // targetNum 没变
+                }
                 return null;
             }
         });
         boolean isSuccess = success[0];
 
         if (!isSuccess) {
-            // 可能是事件已过期或已结算，或者并发导致的失败
-            if (!redisUtil.hasKey(eventInfoKey)) {
+            // 根据失败原因返回具体错误信息
+            String reason = failureReason[0];
+            if ("EVENT_NOT_FOUND".equals(reason)) {
                 throw new BusinessException("事件已过期或已结算");
+            } else if ("ALREADY_JOINED".equals(reason)) {
+                throw new BusinessException("您已经参与了该事件");
+            } else if ("EVENT_FULL".equals(reason)) {
+                throw new BusinessException("事件已满员，无法参与");
+            } else if ("BEACON_FULL".equals(reason)) {
+                throw new BusinessException("信标事件仅支持1人参与，已满员");
+            } else {
+                // 可能是并发导致的失败
+                if (!redisUtil.hasKey(eventInfoKey)) {
+                    throw new BusinessException("事件已过期或已结算");
+                }
+                throw new BusinessException("参与失败，请重试");
             }
-            throw new BusinessException("参与失败，请重试");
         }
 
-        // 4. 获取更新后的人数
-        Integer currentNum = (Integer) redisUtil.hGet(eventInfoKey, "current_num");
-        Integer targetNum = (Integer) redisUtil.hGet(eventInfoKey, "target_num");
+        // 6. 获取更新后的人数
+        Integer currentNum = finalCurrentNum[0];
+        Integer targetNum = finalTargetNum[0];
         boolean isFull = currentNum.equals(targetNum);
-
-        // 5. 为参与者创建事件历史记录
-        try {
-            Map<Object, Object> eventInfo = redisUtil.hGetAll(eventInfoKey);
-            EventHistory participantHistory = new EventHistory();
-            participantHistory.setEventId(eventId);
-            participantHistory.setUserId(userId);
-            participantHistory.setEventType((String) eventInfo.get("event_type"));
-            participantHistory.setTitle((String) eventInfo.get("title"));
-            participantHistory.setTargetNum(Integer.valueOf((String) eventInfo.get("target_num")));
-            participantHistory.setCurrentNum(currentNum);
-            participantHistory.setExpireMinutes(Integer.valueOf((String) eventInfo.get("expire_minutes")));
-            participantHistory.setExtMeta((String) eventInfo.get("ext_meta"));
-            participantHistory.setStatus("active"); // 活跃状态
-            participantHistory.setCreateTime(LocalDateTime.parse((String) eventInfo.get("create_time")));
-            participantHistory.setExpireTime(LocalDateTime.parse((String) eventInfo.get("expire_time")));
-            eventHistoryMapper.insertEventHistory(participantHistory);
-        } catch (Exception e) {
-            // 记录日志但不影响主流程
-            System.err.println("创建参与者事件历史记录失败: " + e.getMessage());
-        }
 
         // 6. 满员则发送结算消息到MQ
         if (isFull) {
@@ -517,13 +554,52 @@ public class EventServiceImpl implements EventService {
             vo.setEventId(history.getEventId());
             vo.setEventType(history.getEventType());
             vo.setTitle(history.getTitle());
-            // 角色信息不包含在VO中，已移除
+            vo.setTargetNum(history.getTargetNum());
+            vo.setCurrentNum(history.getCurrentNum());
+            vo.setExpireMinutes(history.getExpireMinutes());
             vo.setStatus(history.getStatus());
+            vo.setExtMeta(history.getExtMeta());
             vo.setCreateTime(history.getCreateTime());
+            vo.setExpireTime(history.getExpireTime());
+            vo.setSettleTime(history.getSettleTime());
             voList.add(vo);
         }
 
         return voList;
+    }
+
+    @Override
+    public List<CompletedEventVO> getCompletedEvents(Long userId) {
+        QueryWrapper<EventHistory> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("user_id", userId)
+                .in("status", EventConstant.EVENT_STATUS_COMPLETED, EventConstant.EVENT_STATUS_EXPIRED)
+                .orderByDesc("settle_time");
+        List<EventHistory> records = eventHistoryMapper.selectList(queryWrapper);
+
+        List<CompletedEventVO> result = new ArrayList<>();
+        for (EventHistory record : records) {
+            CompletedEventVO vo = new CompletedEventVO();
+            vo.setEventId(record.getEventId());
+            vo.setEventType(record.getEventType());
+            vo.setTitle(record.getTitle());
+            vo.setTargetNum(record.getTargetNum());
+            vo.setCurrentNum(record.getCurrentNum());
+            vo.setExpireMinutes(record.getExpireMinutes());
+            vo.setStatus(record.getStatus());
+            vo.setExtMeta(record.getExtMeta());
+            vo.setCreateTime(record.getCreateTime());
+            vo.setExpireTime(record.getExpireTime());
+            vo.setSettleTime(record.getSettleTime());
+
+            List<EventParticipantVO> participantVOList = new ArrayList<>();
+            if (StringUtils.hasText(record.getParticipants())) {
+                participantVOList = JSON.parseArray(record.getParticipants(), EventParticipantVO.class);
+            }
+            vo.setParticipants(participantVOList);
+            result.add(vo);
+        }
+
+        return result;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -546,59 +622,64 @@ public class EventServiceImpl implements EventService {
         Set<Object> participantsSet = redisUtil.sMembers(eventParticipantsKey);
 
         // 4. 解析事件数据
-        Long ownerId = Long.valueOf((String) eventInfo.get("owner"));
-        String eventType = (String) eventInfo.get("event_type");
-        String title = (String) eventInfo.get("title");
-        Integer targetNum = Integer.valueOf((String) eventInfo.get("target_num"));
-        Integer currentNum = Integer.valueOf((String) eventInfo.get("current_num"));
-        Integer expireMinutes = Integer.valueOf((String) eventInfo.get("expire_minutes"));
-        String extMetaStr = (String) eventInfo.get("ext_meta");
+        Long ownerId = Long.valueOf(String.valueOf(eventInfo.get("owner")));
+        String eventType = String.valueOf(eventInfo.get("event_type"));
+        String title = String.valueOf(eventInfo.get("title"));
+        Integer targetNum = Integer.valueOf(String.valueOf(eventInfo.get("target_num")));
+        Integer currentNum = Integer.valueOf(String.valueOf(eventInfo.get("current_num")));
+        Integer expireMinutes = Integer.valueOf(String.valueOf(eventInfo.get("expire_minutes")));
+        String extMetaStr = String.valueOf(eventInfo.get("ext_meta"));
         // 修复时间类型转换，从Redis获取的数据通常是字符串
-        LocalDateTime createTime = LocalDateTime.parse((String) eventInfo.get("create_time"));
-        LocalDateTime expireTime = LocalDateTime.parse((String) eventInfo.get("expire_time"));
+        LocalDateTime createTime = LocalDateTime.parse(String.valueOf(eventInfo.get("create_time")));
+        LocalDateTime expireTime = LocalDateTime.parse(String.valueOf(eventInfo.get("expire_time")));
 
         // 5. 转换参与者数组
         List<Long> participantIds = new ArrayList<>();
         for (Object obj : participantsSet) {
-            participantIds.add(Long.valueOf((String) obj));
+            participantIds.add(Long.valueOf(String.valueOf(obj)));
         }
 
         // 6. 存储事件历史
-        String finalStatus = settleStatus;
-        if (EventConstant.SETTLE_STATUS_SUCCESS.equals(settleStatus) && currentNum < targetNum) {
-            finalStatus = EventConstant.SETTLE_STATUS_FAILED_TIMEOUT; // 未达标则超时失败
+        String finalStatus;
+        if (EventConstant.SETTLE_STATUS_SUCCESS.equals(settleStatus)) {
+            finalStatus = currentNum >= targetNum
+                    ? EventConstant.EVENT_STATUS_COMPLETED
+                    : EventConstant.EVENT_STATUS_EXPIRED;
+        } else {
+            finalStatus = EventConstant.EVENT_STATUS_EXPIRED;
         }
 
-        // 6.1 更新现有事件历史记录的状态和结算时间
-        for (Long userId : participantIds) {
-            // 查询现有记录
-            QueryWrapper<EventHistory> queryWrapper = new QueryWrapper<>();
-            queryWrapper.eq("event_id", eventId).eq("user_id", userId);
-            EventHistory existingHistory = eventHistoryMapper.selectOne(queryWrapper);
-            
-            if (existingHistory != null) {
-                // 更新现有记录
-                existingHistory.setStatus(finalStatus);
-                existingHistory.setCurrentNum(currentNum);
-                existingHistory.setSettleTime(LocalDateTime.now());
-                eventHistoryMapper.updateById(existingHistory);
-            } else {
-                // 如果不存在记录（异常情况），创建新记录
-                EventHistory history = new EventHistory();
-                history.setEventId(eventId);
-                history.setUserId(userId);
-                history.setEventType(eventType);
-                history.setTitle(title);
-                history.setTargetNum(targetNum);
-                history.setCurrentNum(currentNum);
-                history.setExpireMinutes(expireMinutes);
-                history.setExtMeta(extMetaStr);
-                history.setStatus(finalStatus);
-                history.setCreateTime(createTime);
-                history.setExpireTime(expireTime);
-                history.setSettleTime(LocalDateTime.now());
-                eventHistoryMapper.insertEventHistory(history);
+        Map<Long, SysUser> userMap = new HashMap<>();
+        if (!participantIds.isEmpty()) {
+            List<SysUser> users = sysUserMapper.selectBatchIds(participantIds);
+            if (users != null) {
+                userMap = users.stream()
+                        .collect(Collectors.toMap(SysUser::getId, user -> user));
             }
+        }
+        LocalDateTime settleTimeNow = LocalDateTime.now();
+        List<EventParticipantVO> participantDetails = new ArrayList<>();
+        for (Long uid : participantIds) {
+            EventParticipantVO detail = new EventParticipantVO();
+            detail.setUserId(uid);
+            SysUser sysUser = userMap.get(uid);
+            detail.setNickname(sysUser != null ? sysUser.getNickname() : "用户" + uid);
+            detail.setStatus(finalStatus);
+            detail.setOwner(uid.equals(ownerId));
+            detail.setJoinTime(null);
+            detail.setSettleTime(settleTimeNow);
+            participantDetails.add(detail);
+        }
+
+        QueryWrapper<EventHistory> ownerQuery = new QueryWrapper<>();
+        ownerQuery.eq("event_id", eventId);
+        EventHistory ownerHistory = eventHistoryMapper.selectOne(ownerQuery);
+        if (ownerHistory != null) {
+            ownerHistory.setStatus(finalStatus);
+            ownerHistory.setCurrentNum(currentNum);
+            ownerHistory.setSettleTime(settleTimeNow);
+            ownerHistory.setParticipants(JSON.toJSONString(participantDetails));
+            eventHistoryMapper.updateById(ownerHistory);
         }
 
         // 7. 信用分处理
@@ -683,7 +764,7 @@ public class EventServiceImpl implements EventService {
         );
 
         for (Object obj : participantsSet) {
-            Long userId = Long.valueOf((String) obj);
+            Long userId = Long.valueOf(String.valueOf(obj));
             try {
                 WebSocketUtil.sendMessage(userId, notifyMsg);
             } catch (Exception e) {
@@ -709,6 +790,30 @@ public class EventServiceImpl implements EventService {
             } catch (Exception e) {
                 // 忽略发送失败
             }
+        }
+    }
+
+    /**
+     * 私有方法：清理过期事件数据
+     */
+    private void cleanupExpiredEventData(String eventId, String eventType) {
+        try {
+            String eventInfoKey = EventConstant.REDIS_KEY_EVENT_INFO + eventId;
+            String eventParticipantsKey = EventConstant.REDIS_KEY_EVENT_PARTICIPANTS + eventId;
+            String eventLocationKey = EventConstant.REDIS_KEY_EVENT_LOCATION + eventType;
+            
+            // 删除事件信息
+            redisUtil.delete(eventInfoKey);
+            
+            // 删除参与者集合
+            redisUtil.delete(eventParticipantsKey);
+            
+            // 从地理位置中移除事件
+            redisUtil.geoRemove(eventLocationKey, eventId);
+            
+            System.out.println("已清理过期事件数据: " + eventId);
+        } catch (Exception e) {
+            System.err.println("清理过期事件数据失败: " + eventId + ", 错误: " + e.getMessage());
         }
     }
 }

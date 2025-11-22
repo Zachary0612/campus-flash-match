@@ -336,10 +336,28 @@ const handleJoinEvent = async (eventId) => {
     const res = await joinEvent(eventId)
     if (res.code === 200) {
       ElMessage.success('参与成功')
+      // 立即更新UI状态，避免等待接口返回
+      const eventIndex = nearbyEvents.value.findIndex(event => event.eventId === eventId)
+      if (eventIndex !== -1) {
+        // 更新当前人数
+        nearbyEvents.value[eventIndex].currentNum = res.data.currentParticipants
+        // 如果满员，禁用按钮
+        if (res.data.currentParticipants >= res.data.maxParticipants) {
+          nearbyEvents.value[eventIndex].currentNum = res.data.maxParticipants
+        }
+      }
+      // 重新加载附近事件列表，确保数据同步
       loadNearbyEvents()
     }
   } catch (error) {
     console.error('参与事件失败:', error)
+    if (error.response?.data?.message) {
+      ElMessage.error(error.response.data.message)
+    } else if (error.message) {
+      ElMessage.error(error.message)
+    } else {
+      ElMessage.error('参与事件失败，请重试')
+    }
   }
 }
 

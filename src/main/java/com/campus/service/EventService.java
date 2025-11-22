@@ -4,6 +4,7 @@ import java.util.List;
 import com.campus.dto.request.EventCreateDTO;
 import com.campus.dto.response.EventJoinResponseDTO;
 import com.campus.dto.SettlementMsgDTO;
+import com.campus.vo.CompletedEventVO;
 import com.campus.vo.EventHistoryVO;
 import com.campus.vo.NearbyEventVO;
 
@@ -52,6 +53,13 @@ public interface EventService {
      * @return 事件历史列表
      */
     List<EventHistoryVO> getEventHistory(Long userId, Integer pageNum, Integer pageSize);
+
+    /**
+     * 查询已完成事件，包含参与者信息
+     * @param userId 用户ID（通常为发起者）
+     * @return 已完成事件及其参与者列表
+     */
+    List<CompletedEventVO> getCompletedEvents(Long userId);
 
     /**
      * 事件结算（MQ消费者调用）

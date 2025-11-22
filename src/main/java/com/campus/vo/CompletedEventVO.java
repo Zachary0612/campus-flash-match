@@ -1,10 +1,11 @@
 package com.campus.vo;
 
-import lombok.Data;
 import java.time.LocalDateTime;
+import java.util.List;
+import lombok.Data;
 
 @Data
-public class EventHistoryVO {
+public class CompletedEventVO {
     private String eventId;
     private String eventType;
     private String title;
@@ -16,4 +17,5 @@ public class EventHistoryVO {
     private LocalDateTime createTime;
     private LocalDateTime expireTime;
     private LocalDateTime settleTime;
+    private List<EventParticipantVO> participants;
 }

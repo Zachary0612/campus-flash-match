@@ -17,6 +17,7 @@ import com.campus.service.EventService;
 import com.campus.exception.BusinessException;
 import com.campus.vo.EventHistoryVO;
 import com.campus.vo.NearbyEventVO;
+import com.campus.vo.CompletedEventVO;
 
 /**
  * 事件模块Controller：发起、参与、退出、查询附近事件、查询历史
@@ -107,5 +108,19 @@ public class EventController {
         Long userId = Long.valueOf(principal.getName());
         List<EventHistoryVO> historyList = eventService.getEventHistory(userId, pageNum, pageSize);
         return ResultDTO.success("查询成功", historyList);
+    }
+
+    /**
+     * 6. 查询已完成事件（含参与者）
+     */
+    @GetMapping("/completed")
+    public ResultDTO<List<CompletedEventVO>> getCompletedEvents(Principal principal) {
+        if (principal == null) {
+            throw new BusinessException("用户身份无效");
+        }
+
+        Long userId = Long.valueOf(principal.getName());
+        List<CompletedEventVO> completedEvents = eventService.getCompletedEvents(userId);
+        return ResultDTO.success("查询成功", completedEvents);
     }
 }

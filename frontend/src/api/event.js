@@ -72,3 +72,13 @@ export function getEventHistory(pageNum = 1, pageSize = 10) {
     }
   })
 }
+
+/**
+ * 查询已完成事件（含参与者）
+ */
+export function getCompletedEvents() {
+  return request({
+    url: '/event/completed',
+    method: 'get'
+  })
+}

@@ -32,8 +32,11 @@ export const useWebSocketStore = defineStore('websocket', () => {
       const host = window.location.hostname
       const port = import.meta.env.DEV ? '8080' : window.location.port
       const token = localStorage.getItem('token')
-      const wsUrl = `${protocol}//${host}:${port}/ws/${userStore.userId}${token ? `?token=${token}` : ''}`
       
+      // 确保路径格式正确：/ws/{userId}?token={token}
+      const wsUrl = `${protocol}//${host}:${port}/ws/${userStore.userId}${token ? `?token=${encodeURIComponent(token)}` : ''}`
+      
+      console.log('尝试连接WebSocket:', wsUrl)
       ws.value = new WebSocket(wsUrl)
       
       ws.value.onopen = () => {
@@ -60,7 +63,13 @@ export const useWebSocketStore = defineStore('websocket', () => {
       }
       
       ws.value.onerror = (error) => {
-        console.error('WebSocket错误:', error)
+        console.error('WebSocket连接错误:', error)
+        ElNotification({
+          title: '连接失败',
+          message: 'WebSocket连接失败，请检查网络或重新登录',
+          type: 'error',
+          duration: 5000
+        })
       }
       
       ws.value.onclose = () => {

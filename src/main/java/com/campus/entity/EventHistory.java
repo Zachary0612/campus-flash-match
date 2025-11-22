@@ -61,10 +61,10 @@ public class EventHistory {
     private String extMeta;
     
     /**
-     * 参与者ID数组
+     * 参与者ID列表（JSON字符串）
      */
     @JSONField(serialize = false)
-    private Long[] participants;
+    private String participants;
     
     /**
      * 事件状态

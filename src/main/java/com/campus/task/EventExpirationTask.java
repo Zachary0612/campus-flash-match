@@ -76,7 +76,7 @@ public class EventExpirationTask {
                 Object expireTimeObj = redisUtil.hGet(eventInfoKey, "expire_time");
                 if (expireTimeObj != null) {
                     try {
-                        LocalDateTime expireTime = LocalDateTime.parse((String) expireTimeObj);
+                        LocalDateTime expireTime = LocalDateTime.parse(String.valueOf(expireTimeObj));
                         LocalDateTime now = LocalDateTime.now();
                         
                         // 如果事件已过期
@@ -89,6 +89,9 @@ public class EventExpirationTask {
                             
                             rabbitMqProducer.sendSettlementMsg(msgDTO);
                             System.out.println("发送过期事件结算消息: " + eventId);
+                            
+                            // 立即清理Redis中的过期事件数据，避免继续显示在附近事件中
+                            cleanupExpiredEvent(eventId, eventType);
                         }
                     } catch (Exception e) {
                         System.err.println("处理事件过期时间时发生异常，事件ID: " + eventId + ", 错误: " + e.getMessage());
@@ -97,6 +100,30 @@ public class EventExpirationTask {
             }
         } catch (Exception e) {
             System.err.println("扫描事件类型 " + eventType + " 时发生异常: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 清理过期事件的Redis数据
+     */
+    private void cleanupExpiredEvent(String eventId, String eventType) {
+        try {
+            String eventInfoKey = EventConstant.REDIS_KEY_EVENT_INFO + eventId;
+            String eventParticipantsKey = EventConstant.REDIS_KEY_EVENT_PARTICIPANTS + eventId;
+            String eventLocationKey = EventConstant.REDIS_KEY_EVENT_LOCATION + eventType;
+            
+            // 删除事件信息
+            redisUtil.delete(eventInfoKey);
+            
+            // 删除参与者集合
+            redisUtil.delete(eventParticipantsKey);
+            
+            // 从地理位置中移除事件
+            redisUtil.geoRemove(eventLocationKey, eventId);
+            
+            System.out.println("已清理过期事件数据: " + eventId);
+        } catch (Exception e) {
+            System.err.println("清理过期事件数据失败: " + eventId + ", 错误: " + e.getMessage());
         }
     }
 }

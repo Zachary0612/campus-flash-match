@@ -32,10 +32,17 @@ public class WebSocketUtil extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         try {
-            // 从URL路径获取用户ID
-            String uri = session.getUri().getPath();
-            String[] parts = uri.split("/");
-            Long userId = Long.parseLong(parts[parts.length - 1]);
+            // 从握手属性中获取用户ID
+            Map<String, Object> attributes = session.getAttributes();
+            Long userId = (Long) attributes.get("userId");
+            
+            if (userId == null) {
+                // 如果握手属性中没有用户ID，尝试从URL路径获取（兼容旧版本）
+                String uri = session.getUri().getPath();
+                String[] parts = uri.split("/");
+                userId = Long.parseLong(parts[parts.length - 1]);
+                attributes.put("userId", userId);
+            }
             
             addSession(userId, session);
             logger.info("用户 [" + userId + "] 建立WebSocket连接成功");
@@ -188,11 +195,16 @@ public class WebSocketUtil extends TextWebSocketHandler {
      * 从会话中获取用户ID
      */
     private Long getUserIdFromSession(WebSocketSession session) {
-        String uri = session.getUri().getPath();
-        String[] parts = uri.split("/");
         try {
-            return Long.parseLong(parts[parts.length - 1]);
+            // 优先从握手属性中获取用户ID
+            Map<String, Object> attributes = session.getAttributes();
+            Long userId = (Long) attributes.get("userId");
+            if (userId != null) {
+                return userId;
+            }
+            return null;
         } catch (Exception e) {
+            logger.warning("无法从会话中获取用户ID: " + e.getMessage());
             return null;
         }
     }
