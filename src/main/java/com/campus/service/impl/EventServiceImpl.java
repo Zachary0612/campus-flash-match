@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.campus.entity.SysUser;
 import com.campus.entity.CampusPoint;
 import com.campus.entity.EventHistory;
@@ -614,7 +615,8 @@ public class EventServiceImpl implements EventService {
 
         // 2. 校验事件是否存在
         if (!redisUtil.hasKey(eventInfoKey)) {
-            throw new BusinessException("事件数据不存在，无需结算");
+            handleMissingEventData(eventId, settleStatus);
+            return;
         }
 
         // 3. 读取Redis中的事件数据
@@ -671,16 +673,14 @@ public class EventServiceImpl implements EventService {
             participantDetails.add(detail);
         }
 
-        QueryWrapper<EventHistory> ownerQuery = new QueryWrapper<>();
-        ownerQuery.eq("event_id", eventId);
-        EventHistory ownerHistory = eventHistoryMapper.selectOne(ownerQuery);
-        if (ownerHistory != null) {
-            ownerHistory.setStatus(finalStatus);
-            ownerHistory.setCurrentNum(currentNum);
-            ownerHistory.setSettleTime(settleTimeNow);
-            ownerHistory.setParticipants(JSON.toJSONString(participantDetails));
-            eventHistoryMapper.updateById(ownerHistory);
-        }
+        String participantsJson = JSON.toJSONString(participantDetails);
+        UpdateWrapper<EventHistory> ownerUpdate = new UpdateWrapper<>();
+        ownerUpdate.eq("event_id", eventId)
+                .set("status", finalStatus)
+                .set("current_num", currentNum)
+                .set("settle_time", settleTimeNow)
+                .set("participants", participantsJson);
+        eventHistoryMapper.update(null, ownerUpdate);
 
         // 7. 信用分处理
         // 7.1 成功结算：发起者+2，参与者+1
@@ -718,6 +718,21 @@ public class EventServiceImpl implements EventService {
         redisUtil.delete(eventInfoKey);
         redisUtil.delete(eventParticipantsKey);
         redisUtil.geoRemove(eventLocationKey, eventId);
+    }
+
+    /**
+     * 当Redis中事件数据已被清理时，直接根据数据库历史记录更新状态
+     */
+    private void handleMissingEventData(String eventId, String settleStatus) {
+        String finalStatus = EventConstant.SETTLE_STATUS_SUCCESS.equals(settleStatus)
+                ? EventConstant.EVENT_STATUS_COMPLETED
+                : EventConstant.EVENT_STATUS_EXPIRED;
+
+        UpdateWrapper<EventHistory> updateWrapper = new UpdateWrapper<>();
+        updateWrapper.eq("event_id", eventId)
+                .set("status", finalStatus)
+                .set("settle_time", LocalDateTime.now());
+        eventHistoryMapper.update(null, updateWrapper);
     }
 
     /**
