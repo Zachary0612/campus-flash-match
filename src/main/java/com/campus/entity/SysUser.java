@@ -30,6 +30,11 @@ public class SysUser {
     private String nickname;
 
     /**
+     * 邮箱
+     */
+    private String email;
+
+    /**
      * 头像URL（默认default_avatar.png）
      */
     private String avatar;

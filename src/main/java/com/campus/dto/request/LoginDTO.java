@@ -4,6 +4,6 @@ import lombok.Data;
 
 @Data
 public class LoginDTO {
-    private String studentId;
+    private String account; // 学号或邮箱
     private String password;
 }

@@ -2,6 +2,7 @@ package com.campus.vo;
 
 import lombok.Data;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 public class NearbyEventVO {
@@ -12,4 +13,6 @@ public class NearbyEventVO {
     private Integer currentNum;
     private Integer targetNum;
     private LocalDateTime createTime;
+    private String description;
+    private List<String> mediaUrls;
 }

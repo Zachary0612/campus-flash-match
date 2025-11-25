@@ -10,8 +10,21 @@ export function register(data) {
     data: {
       studentId: data.studentId,
       nickname: data.nickname,
-      password: data.password
+      password: data.password,
+      email: data.email,
+      verifyCode: data.verifyCode
     }
+  })
+}
+
+/**
+ * 发送邮箱验证码
+ */
+export function sendEmailCode(email) {
+  return request({
+    url: '/user/email-code',
+    method: 'post',
+    data: { email }
   })
 }
 
@@ -23,7 +36,7 @@ export function login(data) {
     url: '/user/login',
     method: 'post',
     data: {
-      studentId: data.studentId,
+      account: data.account,
       password: data.password
     }
   })

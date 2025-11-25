@@ -1,0 +1,318 @@
+package com.campus.repository;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.geo.GeoResults;
+import org.springframework.data.geo.Point;
+import org.springframework.data.redis.connection.DataType;
+import org.springframework.data.redis.connection.RedisGeoCommands;
+import org.springframework.data.redis.core.RedisOperations;
+import org.springframework.data.redis.core.SessionCallback;
+import org.springframework.stereotype.Repository;
+import com.campus.constant.EventConstant;
+import com.campus.util.RedisUtil;
+
+/**
+ * 事件缓存仓储层
+ * 封装所有事件相关的Redis操作
+ */
+@Repository
+public class EventCacheRepository {
+
+    @Autowired
+    private RedisUtil redisUtil;
+
+    /**
+     * 存储事件位置信息（GEO）
+     */
+    public void saveEventLocation(String eventType, String eventId, double longitude, double latitude) {
+        String eventLocationKey = EventConstant.REDIS_KEY_EVENT_LOCATION + eventType;
+        redisUtil.geoAdd(eventLocationKey, longitude, latitude, eventId);
+    }
+
+    /**
+     * 存储事件详细信息（Hash）
+     */
+    public void saveEventInfo(String eventId, Map<String, Object> eventInfo, long expireSeconds) {
+        String eventInfoKey = EventConstant.REDIS_KEY_EVENT_INFO + eventId;
+        eventInfo.forEach((key, value) -> redisUtil.hSet(eventInfoKey, key, value));
+        redisUtil.expire(eventInfoKey, expireSeconds + 300, TimeUnit.SECONDS);
+    }
+
+    /**
+     * 添加事件参与者
+     */
+    public void addParticipant(String eventId, Long userId, long expireSeconds) {
+        String eventParticipantsKey = EventConstant.REDIS_KEY_EVENT_PARTICIPANTS + eventId;
+        redisUtil.sAdd(eventParticipantsKey, userId.toString());
+        redisUtil.expire(eventParticipantsKey, expireSeconds + 300, TimeUnit.SECONDS);
+    }
+
+    /**
+     * 获取用户位置
+     */
+    public Point getUserLocation(Long userId) {
+        List<Point> positions = redisUtil.geoPosition("user:location:", userId.toString());
+        if (positions == null || positions.isEmpty() || positions.get(0) == null) {
+            return null;
+        }
+        return positions.get(0);
+    }
+
+    /**
+     * 查询附近事件（GEO半径搜索）
+     */
+    public GeoResults<RedisGeoCommands.GeoLocation<Object>> findNearbyEvents(
+            String eventType, double longitude, double latitude, double radius) {
+        String eventLocationKey = EventConstant.REDIS_KEY_EVENT_LOCATION + eventType;
+        
+        if (!redisUtil.hasKey(eventLocationKey)) {
+            return null;
+        }
+        
+        DataType keyType = redisUtil.type(eventLocationKey);
+        if (keyType != DataType.ZSET) {
+            return null;
+        }
+        
+        try {
+            return redisUtil.geoRadius(
+                    eventLocationKey,
+                    longitude,
+                    latitude,
+                    radius,
+                    RedisGeoCommands.DistanceUnit.METERS
+            );
+        } catch (Exception e) {
+            System.err.println("执行geoRadius操作时发生异常: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 获取事件详细信息
+     */
+    public Map<Object, Object> getEventInfo(String eventId) {
+        String eventInfoKey = EventConstant.REDIS_KEY_EVENT_INFO + eventId;
+        if (!redisUtil.hasKey(eventInfoKey)) {
+            return null;
+        }
+        
+        DataType keyType = redisUtil.type(eventInfoKey);
+        if (keyType != DataType.HASH) {
+            return null;
+        }
+        
+        return redisUtil.hGetAll(eventInfoKey);
+    }
+
+    /**
+     * 获取事件单个字段
+     */
+    public Object getEventField(String eventId, String field) {
+        String eventInfoKey = EventConstant.REDIS_KEY_EVENT_INFO + eventId;
+        return redisUtil.hGet(eventInfoKey, field);
+    }
+
+    /**
+     * 检查事件是否存在
+     */
+    public boolean eventExists(String eventId) {
+        String eventInfoKey = EventConstant.REDIS_KEY_EVENT_INFO + eventId;
+        return redisUtil.hasKey(eventInfoKey);
+    }
+
+    /**
+     * 检查事件是否过期
+     */
+    public boolean isEventExpired(String eventId) {
+        Object expireTimeObj = getEventField(eventId, "expire_time");
+        if (expireTimeObj == null) {
+            return true;
+        }
+        LocalDateTime expireTime = LocalDateTime.parse(String.valueOf(expireTimeObj));
+        return LocalDateTime.now().isAfter(expireTime);
+    }
+
+    /**
+     * 获取事件参与者集合
+     */
+    public Set<Object> getParticipants(String eventId) {
+        String eventParticipantsKey = EventConstant.REDIS_KEY_EVENT_PARTICIPANTS + eventId;
+        return redisUtil.sMembers(eventParticipantsKey);
+    }
+
+    /**
+     * 检查用户是否已参与事件
+     */
+    public boolean isParticipant(String eventId, Long userId) {
+        String eventParticipantsKey = EventConstant.REDIS_KEY_EVENT_PARTICIPANTS + eventId;
+        return redisUtil.sIsMember(eventParticipantsKey, userId.toString());
+    }
+
+    /**
+     * 事务性加入事件（并发控制）
+     */
+    public JoinEventResult joinEventTransaction(String eventId, Long userId) {
+        String eventInfoKey = EventConstant.REDIS_KEY_EVENT_INFO + eventId;
+        String eventParticipantsKey = EventConstant.REDIS_KEY_EVENT_PARTICIPANTS + eventId;
+        
+        final JoinEventResult result = new JoinEventResult();
+        
+        redisUtil.execute(new SessionCallback<Object>() {
+            @Override
+            public Object execute(RedisOperations operations) {
+                operations.watch(eventInfoKey);
+                operations.watch(eventParticipantsKey);
+
+                if (!operations.hasKey(eventInfoKey)) {
+                    result.setSuccess(false);
+                    result.setFailureReason("EVENT_NOT_FOUND");
+                    return null;
+                }
+
+                Map<Object, Object> eventInfoMap = operations.opsForHash().entries(eventInfoKey);
+                String eventType = String.valueOf(eventInfoMap.get("event_type"));
+                Integer currentNum = Integer.valueOf(String.valueOf(eventInfoMap.get("current_num")));
+                Integer targetNum = Integer.valueOf(String.valueOf(eventInfoMap.get("target_num")));
+
+                if (operations.opsForSet().isMember(eventParticipantsKey, userId.toString())) {
+                    result.setSuccess(false);
+                    result.setFailureReason("ALREADY_JOINED");
+                    return null;
+                }
+
+                if (currentNum >= targetNum) {
+                    result.setSuccess(false);
+                    result.setFailureReason("EVENT_FULL");
+                    return null;
+                }
+
+                if (EventConstant.EVENT_TYPE_BEACON.equals(eventType) && currentNum >= 1) {
+                    result.setSuccess(false);
+                    result.setFailureReason("BEACON_FULL");
+                    return null;
+                }
+
+                operations.multi();
+                operations.opsForHash().increment(eventInfoKey, "current_num", 1);
+                operations.opsForSet().add(eventParticipantsKey, userId.toString());
+
+                List<Object> execResult = operations.exec();
+                boolean success = (execResult != null && !execResult.isEmpty());
+                result.setSuccess(success);
+                
+                if (success) {
+                    result.setCurrentNum(((Long) execResult.get(0)).intValue());
+                    result.setTargetNum(targetNum);
+                }
+                return null;
+            }
+        });
+        
+        return result;
+    }
+
+    /**
+     * 事务性退出事件
+     */
+    public boolean quitEventTransaction(String eventId, Long userId) {
+        String eventInfoKey = EventConstant.REDIS_KEY_EVENT_INFO + eventId;
+        String eventParticipantsKey = EventConstant.REDIS_KEY_EVENT_PARTICIPANTS + eventId;
+        
+        final Boolean[] success = {false};
+        
+        redisUtil.execute(new SessionCallback<Object>() {
+            @Override
+            public Object execute(RedisOperations operations) {
+                operations.watch(eventInfoKey);
+                operations.watch(eventParticipantsKey);
+                operations.multi();
+                operations.opsForHash().increment(eventInfoKey, "current_num", -1);
+                operations.opsForSet().remove(eventParticipantsKey, userId.toString());
+                List<Object> result = operations.exec();
+                success[0] = (result != null && !result.isEmpty());
+                return null;
+            }
+        });
+        
+        return success[0];
+    }
+
+    /**
+     * 清理事件数据
+     */
+    public void cleanupEventData(String eventId, String eventType) {
+        String eventInfoKey = EventConstant.REDIS_KEY_EVENT_INFO + eventId;
+        String eventParticipantsKey = EventConstant.REDIS_KEY_EVENT_PARTICIPANTS + eventId;
+        String eventLocationKey = EventConstant.REDIS_KEY_EVENT_LOCATION + eventType;
+        
+        redisUtil.delete(eventInfoKey);
+        redisUtil.delete(eventParticipantsKey);
+        redisUtil.geoRemove(eventLocationKey, eventId);
+    }
+
+    /**
+     * 获取所有事件ID（用于定时任务扫描）
+     */
+    public Set<Object> getAllEventIds(String eventType) {
+        String eventLocationKey = EventConstant.REDIS_KEY_EVENT_LOCATION + eventType;
+        
+        if (!redisUtil.hasKey(eventLocationKey)) {
+            return null;
+        }
+        
+        DataType keyType = redisUtil.type(eventLocationKey);
+        if (keyType != DataType.ZSET) {
+            return null;
+        }
+        
+        return redisUtil.zRange(eventLocationKey, 0, -1);
+    }
+
+    /**
+     * 加入事件结果DTO
+     */
+    public static class JoinEventResult {
+        private boolean success;
+        private String failureReason;
+        private Integer currentNum;
+        private Integer targetNum;
+
+        public boolean isSuccess() {
+            return success;
+        }
+
+        public void setSuccess(boolean success) {
+            this.success = success;
+        }
+
+        public String getFailureReason() {
+            return failureReason;
+        }
+
+        public void setFailureReason(String failureReason) {
+            this.failureReason = failureReason;
+        }
+
+        public Integer getCurrentNum() {
+            return currentNum;
+        }
+
+        public void setCurrentNum(Integer currentNum) {
+            this.currentNum = currentNum;
+        }
+
+        public Integer getTargetNum() {
+            return targetNum;
+        }
+
+        public void setTargetNum(Integer targetNum) {
+            this.targetNum = targetNum;
+        }
+    }
+}

@@ -7,4 +7,6 @@ public class RegisterDTO {
     private String studentId;
     private String nickname;
     private String password;
+    private String email;
+    private String verifyCode;
 }

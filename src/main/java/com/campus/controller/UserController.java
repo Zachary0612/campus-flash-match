@@ -14,10 +14,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.campus.dto.ResultDTO;
 import com.campus.dto.request.LoginDTO;
 import com.campus.dto.request.RegisterDTO;
+import com.campus.dto.request.EmailCodeRequestDTO;
 import com.campus.dto.response.LoginResponseDTO;
 import com.campus.dto.response.CreditInfoResponseDTO;
 import com.campus.entity.CampusPoint;
 import com.campus.service.UserService;
+import com.campus.service.EmailService;
 import com.campus.exception.BusinessException;
 import com.campus.util.JwtUtil;
 
@@ -33,6 +35,9 @@ public class UserController {
 
     @Autowired
     private JwtUtil jwtUtil;
+
+    @Autowired
+    private EmailService emailService;
 
     /**
      * 根路径，用于检查服务状态
@@ -50,8 +55,27 @@ public class UserController {
         // 获取客户端IP
         String clientIp = request.getRemoteAddr();
         // 调用Service注册
-        String token = userService.register(dto.getStudentId(), dto.getNickname(), dto.getPassword(), clientIp);
+        String token = userService.register(
+                dto.getStudentId(),
+                dto.getNickname(),
+                dto.getPassword(),
+                dto.getEmail(),
+                dto.getVerifyCode(),
+                clientIp
+        );
         return ResultDTO.success("注册成功", token);
+    }
+
+    /**
+     * 1.1 发送邮箱验证码
+     */
+    @PostMapping("/email-code")
+    public ResultDTO<Void> sendEmailCode(@RequestBody EmailCodeRequestDTO dto) {
+        if (dto == null || dto.getEmail() == null || dto.getEmail().isBlank()) {
+            throw new BusinessException("邮箱不能为空");
+        }
+        emailService.sendVerificationCode(dto.getEmail());
+        return ResultDTO.success("验证码发送成功");
     }
 
     /**
@@ -60,7 +84,7 @@ public class UserController {
     @PostMapping("/login")
     public ResultDTO<LoginResponseDTO> login(@RequestBody LoginDTO dto, HttpServletRequest request) {
         String clientIp = request.getRemoteAddr();
-        LoginResponseDTO response = userService.login(dto.getStudentId(), dto.getPassword(), clientIp);
+        LoginResponseDTO response = userService.login(dto.getAccount(), dto.getPassword(), clientIp);
         return ResultDTO.success("登录成功", response);
     }
 

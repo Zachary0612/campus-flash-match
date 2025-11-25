@@ -11,6 +11,7 @@ import com.campus.entity.CreditRecord;
 import com.campus.dto.response.LoginResponseDTO;
 import com.campus.dto.response.CreditInfoResponseDTO;
 import com.campus.service.UserService;
+import com.campus.service.EmailService;
 import com.campus.service.CreditService;
 import com.campus.util.JwtUtil;
 import com.campus.util.RedisUtil;
@@ -38,6 +39,7 @@ public class UserServiceImpl implements UserService {
     private final CreditService creditService;
     private final JwtUtil jwtUtil;
     private final RedisUtil redisUtil;
+    private final EmailService emailService;
 
     // 校园IP前缀（配置文件读取）
     @Value("${campus.ip-prefix}")
@@ -52,19 +54,31 @@ public class UserServiceImpl implements UserService {
                           com.campus.mapper.CreditRecordMapper creditRecordMapper,
                           CreditService creditService,
                           JwtUtil jwtUtil,
-                          RedisUtil redisUtil) {
+                          RedisUtil redisUtil,
+                          EmailService emailService) {
         this.sysUserMapper = sysUserMapper;
         this.campusPointMapper = campusPointMapper;
         this.creditRecordMapper = creditRecordMapper;
         this.creditService = creditService;
         this.jwtUtil = jwtUtil;
         this.redisUtil = redisUtil;
+        this.emailService = emailService;
     }
 
     @Override
-    public String register(String studentId, String nickname, String password, String clientIp) {
+    public String register(String studentId, String nickname, String password, String email, String verifyCode, String clientIp) {
         System.out.println("注册请求 - 学号: " + studentId + ", 昵称: " + nickname + ", 客户端IP: " + clientIp);
-        
+
+        if (email == null || email.isBlank()) {
+            throw new BusinessException("邮箱不能为空");
+        }
+        if (verifyCode == null || verifyCode.isBlank()) {
+            throw new BusinessException("验证码不能为空");
+        }
+        if (!emailService.validateVerificationCode(email, verifyCode)) {
+            throw new BusinessException("验证码错误或已过期");
+        }
+
         // 1. 校园IP校验（开发环境允许本地IP）
         boolean isLocalIp = clientIp.equals("127.0.0.1") || 
                            clientIp.equals("0:0:0:0:0:0:0:1") || 
@@ -86,6 +100,14 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException("学号已注册");
         }
 
+        // 2.1 校验邮箱注册数量
+        QueryWrapper<SysUser> emailWrapper = new QueryWrapper<>();
+        emailWrapper.eq("email", email);
+        Long emailCount = sysUserMapper.selectCount(emailWrapper);
+        if (emailCount != null && emailCount >= 3) {
+            throw new BusinessException("该邮箱最多可注册3个账号");
+        }
+
         // 3. 密码加密
         String encodedPassword = passwordEncoder.encode(password);
         System.out.println("密码加密完成");
@@ -94,6 +116,7 @@ public class UserServiceImpl implements UserService {
         SysUser user = new SysUser();
         user.setStudentId(studentId);
         user.setNickname(nickname);
+        user.setEmail(email);
         user.setPassword(encodedPassword);
         user.setCreditScore(80); // 初始信用分80
         user.setLastLoginIp(clientIp);
@@ -115,18 +138,22 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public LoginResponseDTO login(String studentId, String password, String clientIp) {
-        // 1. 查询用户
+    public LoginResponseDTO login(String account, String password, String clientIp) {
+        // 1. 查询用户（学号或邮箱）
         QueryWrapper<SysUser> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("student_id", studentId);
+        if (account != null && account.contains("@")) {
+            queryWrapper.eq("email", account);
+        } else {
+            queryWrapper.eq("student_id", account);
+        }
         SysUser user = sysUserMapper.selectOne(queryWrapper);
         if (user == null) {
-            throw new BusinessException("学号或密码错误");
+            throw new BusinessException("账号或密码错误");
         }
 
         // 2. 密码校验
         if (!passwordEncoder.matches(password, user.getPassword())) {
-            throw new BusinessException("学号或密码错误");
+            throw new BusinessException("账号或密码错误");
         }
 
         // 3. 更新最后登录IP和时间

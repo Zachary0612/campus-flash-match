@@ -6,11 +6,18 @@
         <p class="text-gray-500">校园拼单约伴平台</p>
       </div>
       
+      <div class="flex justify-center mb-4">
+        <el-radio-group v-model="loginMode" size="large">
+          <el-radio-button label="studentId">学号登录</el-radio-button>
+          <el-radio-button label="email">邮箱登录</el-radio-button>
+        </el-radio-group>
+      </div>
+
       <el-form :model="loginForm" :rules="rules" ref="loginFormRef" label-width="0">
-        <el-form-item prop="studentId">
+        <el-form-item prop="account">
           <el-input
-            v-model="loginForm.studentId"
-            placeholder="请输入学号"
+            v-model="loginForm.account"
+            :placeholder="accountPlaceholder"
             size="large"
             :prefix-icon="User"
           />
@@ -52,7 +59,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useWebSocketStore } from '@/stores/websocket'
@@ -65,14 +72,39 @@ const wsStore = useWebSocketStore()
 const loginFormRef = ref(null)
 const loading = ref(false)
 
+const loginMode = ref('studentId')
+
 const loginForm = reactive({
-  studentId: '',
+  account: '',
   password: ''
 })
 
+const accountPlaceholder = computed(() => 
+  loginMode.value === 'studentId' ? '请输入学号' : '请输入邮箱'
+)
+
+const validateAccount = (rule, value, callback) => {
+  if (!value) {
+    callback(new Error(loginMode.value === 'studentId' ? '请输入学号' : '请输入邮箱'))
+    return
+  }
+  if (loginMode.value === 'email') {
+    const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/
+    if (!emailRegex.test(value)) {
+      callback(new Error('邮箱格式不正确'))
+      return
+    }
+  }
+  callback()
+}
+
+watch(loginMode, () => {
+  loginForm.account = ''
+})
+
 const rules = {
-  studentId: [
-    { required: true, message: '请输入学号', trigger: 'blur' }
+  account: [
+    { required: true, validator: validateAccount, trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },

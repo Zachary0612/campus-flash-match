@@ -13,7 +13,9 @@ export function createEvent(data) {
       targetNum: data.targetNum,
       expireMinutes: data.expireMinutes,
       pointId: data.pointId,
-      extMeta: data.extMeta
+      extMeta: data.extMeta,
+      description: data.description,
+      mediaUrls: data.mediaUrls
     }
   })
 }

@@ -1,5 +1,7 @@
 package com.campus.dto.request;
 
+import java.util.List;
+import java.util.Map;
 import lombok.Data;
 
 /**
@@ -35,5 +37,15 @@ public class EventCreateDTO {
     /**
      * 扩展元数据
      */
-    private java.util.Map<String, Object> extMeta;
+    private Map<String, Object> extMeta;
+
+    /**
+     * 事件说明
+     */
+    private String description;
+
+    /**
+     * 图片或视频URL列表
+     */
+    private List<String> mediaUrls;
 }

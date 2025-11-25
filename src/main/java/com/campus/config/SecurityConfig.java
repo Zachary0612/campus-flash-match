@@ -66,6 +66,7 @@ public class SecurityConfig {
                     "/api/",
                     "/health",
                     "/api/user/register",
+                    "/api/user/email-code",
                     "/api/user/login",
                     "/api/user/points",  // 校园点位列表
                     "/error",

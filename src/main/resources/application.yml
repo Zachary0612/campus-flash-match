@@ -33,6 +33,19 @@ spring:
     listener:
       simple:
         acknowledge-mode: manual # 手动ACK
+  mail:
+    host: smtp.qq.com # 根据实际邮箱服务调整
+    port: 465
+    username: your-email@qq.com # TODO: 修改为真实发件邮箱
+    password: your-mail-auth-code # TODO: 修改为邮箱授权码
+    protocol: smtps
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          auth: true
+          ssl:
+            enable: true
   # WebSocket配置（默认无需额外配置，通过代码开启）
 
 # MyBatis-Plus配置adad
@@ -60,3 +73,7 @@ campus:
   event:
     default-radius: 1000 # 事件匹配默认半径（米）
     quit-expire: 600 # 拼单退出有效时间（10分钟，秒）
+  media:
+    storage-path: ./uploads/
+    url-prefix: /media/
+    max-size: 10485760 # 10MB

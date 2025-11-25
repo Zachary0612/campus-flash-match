@@ -17,5 +17,7 @@ public class CompletedEventVO {
     private LocalDateTime createTime;
     private LocalDateTime expireTime;
     private LocalDateTime settleTime;
+    private String description;
+    private List<String> mediaUrls;
     private List<EventParticipantVO> participants;
 }

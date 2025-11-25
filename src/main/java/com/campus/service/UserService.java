@@ -18,7 +18,7 @@ public interface UserService {
      * @param clientIp 客户端IP（校园IP校验）
      * @return 登录Token
      */
-    String register(String studentId, String nickname, String password, String clientIp);
+    String register(String studentId, String nickname, String password, String email, String verifyCode, String clientIp);
 
     /**
      * 用户登录
@@ -27,7 +27,7 @@ public interface UserService {
      * @param clientIp 客户端IP
      * @return 登录响应（用户ID、Token、信用分）
      */
-    LoginResponseDTO login(String studentId, String password, String clientIp);
+    LoginResponseDTO login(String account, String password, String clientIp);
 
     /**
      * 绑定校园点位

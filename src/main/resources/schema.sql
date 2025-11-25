@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS sys_user (
     id BIGSERIAL PRIMARY KEY,
     student_id VARCHAR(50) UNIQUE NOT NULL,
     nickname VARCHAR(100) NOT NULL,
+    email VARCHAR(100),
     avatar VARCHAR(255) DEFAULT 'default_avatar.png',
     password VARCHAR(255) NOT NULL,
     credit_score INTEGER DEFAULT 80,
