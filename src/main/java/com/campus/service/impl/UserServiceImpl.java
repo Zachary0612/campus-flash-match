@@ -75,9 +75,6 @@ public class UserServiceImpl implements UserService {
         if (verifyCode == null || verifyCode.isBlank()) {
             throw new BusinessException("验证码不能为空");
         }
-        if (!emailService.validateVerificationCode(email, verifyCode)) {
-            throw new BusinessException("验证码错误或已过期");
-        }
 
         // 1. 校园IP校验（开发环境允许本地IP）
         boolean isLocalIp = clientIp.equals("127.0.0.1") || 
@@ -100,12 +97,17 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException("学号已注册");
         }
 
-        // 2.1 校验邮箱注册数量
+        // 2.1 校验邮箱是否已注册（数据库有唯一约束）
         QueryWrapper<SysUser> emailWrapper = new QueryWrapper<>();
         emailWrapper.eq("email", email);
         Long emailCount = sysUserMapper.selectCount(emailWrapper);
-        if (emailCount != null && emailCount >= 3) {
-            throw new BusinessException("该邮箱最多可注册3个账号");
+        if (emailCount != null && emailCount >= 1) {
+            throw new BusinessException("该邮箱已被注册");
+        }
+
+        // 3. 校验验证码（在所有前置校验通过后再验证，避免验证码被无效消费）
+        if (!emailService.validateVerificationCode(email, verifyCode)) {
+            throw new BusinessException("验证码错误或已过期");
         }
 
         // 3. 密码加密
@@ -124,6 +126,9 @@ public class UserServiceImpl implements UserService {
         user.setUpdateTime(LocalDateTime.now());
         sysUserMapper.insert(user);
         System.out.println("用户信息保存完成，用户ID: " + user.getId());
+
+        // 注册成功后删除验证码
+        emailService.deleteVerificationCode(email);
 
         // 5. 生成Token
         try {

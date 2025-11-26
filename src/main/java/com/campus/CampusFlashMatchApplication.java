@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
@@ -17,6 +18,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @MapperScan("com.campus.mapper") // 扫描MyBatis Mapper接口
 @EnableTransactionManagement // 开启事务管理
 @EnableScheduling // 开启定时任务
+@EnableAsync // 开启异步支持
 public class CampusFlashMatchApplication {
     public static void main(String[] args) {
         SpringApplication.run(CampusFlashMatchApplication.class, args);

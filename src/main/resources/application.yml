@@ -36,8 +36,8 @@ spring:
   mail:
     host: smtp.qq.com # 根据实际邮箱服务调整
     port: 465
-    username: your-email@qq.com # TODO: 修改为真实发件邮箱
-    password: your-mail-auth-code # TODO: 修改为邮箱授权码
+    username: 351842498@qq.com  # 发件邮箱
+    password: "nswintwiesaabjhd"  # 邮箱授权码
     protocol: smtps
     default-encoding: UTF-8
     properties:
