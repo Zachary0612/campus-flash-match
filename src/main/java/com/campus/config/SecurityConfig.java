@@ -69,6 +69,14 @@ public class SecurityConfig {
                     "/api/user/email-code",
                     "/api/user/login",
                     "/api/user/points",  // 校园点位列表
+                    "/api/event/detail",  // 事件详情（可匿名查看）
+                    "/api/event/search",  // 事件搜索（可匿名查看）
+                    "/api/profile/{userId}",  // 用户主页（可匿名查看）
+                    "/api/comment/event/**",  // 事件评论列表（可匿名查看）
+                    "/api/rating/event/**",  // 事件评价列表（可匿名查看）
+                    "/api/rating/received/**",  // 用户收到的评价（可匿名查看）
+                    "/api/rating/average/**",  // 用户平均评分（可匿名查看）
+                    "/media/**",  // 上传的媒体文件
                     "/error",
                     "/ws/**",  // WebSocket 端点
                     "/swagger-ui/**",

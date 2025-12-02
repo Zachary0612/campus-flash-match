@@ -1,48 +1,61 @@
 <template>
   <Layout>
-    <div class="beacon-page">
-      <el-card shadow="hover">
-        <template #header>
-          <div class="flex items-center justify-between">
-            <span class="text-lg font-semibold">占位信标管理</span>
-            <el-button type="primary" @click="showPublishDialog">
-              <el-icon><Plus /></el-icon>
-              发布信标
-            </el-button>
-          </div>
-        </template>
+    <div class="beacon-page relative z-10">
+      <div class="glass rounded-2xl p-6 shadow-lg backdrop-blur-lg bg-white/30 border-white/40 min-h-[80vh] animate-slide-up" style="animation-delay: 0.1s">
+        <div class="flex items-center justify-between mb-6 border-b border-white/20 pb-4">
+          <span class="text-xl font-bold text-gray-800 flex items-center">
+            <el-icon class="mr-2 text-warning"><LocationInformation /></el-icon>
+            占位信标管理
+          </span>
+          <el-button type="primary" @click="showPublishDialog" class="!rounded-lg shadow-md shadow-blue-200">
+            <el-icon class="mr-1"><Plus /></el-icon>
+            发布信标
+          </el-button>
+        </div>
         
         <el-alert
           title="信标说明"
-          type="info"
+          type="warning"
           :closable="false"
-          class="mb-4"
+          class="mb-6 !bg-orange-50/80 !border-orange-100"
         >
-          <p>占位信标用于标记图书馆座位、食堂排队等临时占位信息</p>
-          <p>发布虚假信标将被扣除信用分，请诚信使用</p>
+          <template #default>
+            <div class="text-orange-800 text-sm">
+              <p class="mb-1 flex items-center"><el-icon class="mr-1"><InfoFilled /></el-icon> 占位信标用于标记图书馆座位、食堂排队等临时占位信息</p>
+              <p class="flex items-center"><el-icon class="mr-1"><Warning /></el-icon> 发布虚假信标将被扣除信用分，请诚信使用</p>
+            </div>
+          </template>
         </el-alert>
         
-        <div v-if="loading" class="text-center py-8">
-          <el-icon class="is-loading" :size="32"><Loading /></el-icon>
+        <div v-if="loading" class="text-center py-16">
+          <el-icon class="is-loading text-primary" :size="40"><Loading /></el-icon>
         </div>
         
-        <div v-else-if="beaconList.length === 0" class="text-center py-8 text-gray-400">
-          <el-icon :size="48"><DocumentDelete /></el-icon>
-          <p class="mt-2">暂无信标信息</p>
+        <div v-else-if="beaconList.length === 0" class="text-center py-16 text-gray-500">
+          <div class="bg-gray-100/50 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4">
+            <el-icon :size="40" class="text-gray-400"><DocumentDelete /></el-icon>
+          </div>
+          <p class="text-lg font-medium">暂无信标信息</p>
         </div>
         
         <div v-else class="beacon-grid">
           <div
-            v-for="beacon in beaconList"
+            v-for="(beacon, index) in beaconList"
             :key="beacon.eventId"
-            class="beacon-card"
+            class="beacon-card bg-white/80 backdrop-blur-sm rounded-xl p-5 border border-white/60 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group"
+            :style="{ animationDelay: `${index * 0.05}s` }"
           >
-            <div class="beacon-header">
-              <el-tag type="warning" size="small">信标</el-tag>
+            <div class="beacon-header flex justify-between items-start mb-3">
+              <div class="flex items-center">
+                 <div class="w-2 h-2 rounded-full bg-warning mr-2 animate-pulse"></div>
+                 <el-tag type="warning" size="small" effect="dark" class="!rounded-full">信标</el-tag>
+              </div>
               <el-button
                 type="danger"
                 size="small"
                 text
+                bg
+                class="!px-2 opacity-0 group-hover:opacity-100 transition-opacity"
                 @click="handleReport(beacon.eventId)"
               >
                 举报
@@ -50,45 +63,47 @@
             </div>
             
             <div class="beacon-content">
-              <p class="location-desc">{{ beacon.title }}</p>
-              <div class="beacon-info">
-                <div class="info-item">
-                  <el-icon><Clock /></el-icon>
+              <p class="location-desc text-gray-800 font-medium text-lg mb-4 leading-relaxed">{{ beacon.title }}</p>
+              <div class="beacon-info flex gap-4 text-sm text-gray-500 bg-gray-50/80 p-3 rounded-lg">
+                <div class="info-item flex items-center">
+                  <el-icon class="mr-1"><Clock /></el-icon>
                   <span>{{ formatTime(beacon.createTime) }}</span>
                 </div>
-                <div class="info-item">
-                  <el-icon><Location /></el-icon>
+                <div class="info-item flex items-center">
+                  <el-icon class="mr-1"><Location /></el-icon>
                   <span>{{ beacon.distance }}m</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </el-card>
+      </div>
       
       <!-- 发布信标对话框 -->
       <el-dialog
         v-model="publishDialogVisible"
         title="发布占位信标"
         width="500px"
+        class="custom-dialog rounded-2xl"
       >
-        <el-form :model="beaconForm" :rules="beaconRules" ref="beaconFormRef" label-width="100px">
+        <el-form :model="beaconForm" :rules="beaconRules" ref="beaconFormRef" label-width="100px" class="pt-4">
           <el-form-item label="位置描述" prop="locationDesc">
             <el-input
               v-model="beaconForm.locationDesc"
               type="textarea"
               :rows="3"
               placeholder="请详细描述占位位置，如：图书馆3楼靠窗座位"
+              class="custom-textarea"
             />
           </el-form-item>
           
           <el-form-item label="有效时长" prop="expireMinutes">
-            <el-input-number v-model="beaconForm.expireMinutes" :min="10" :max="240" />
+            <el-input-number v-model="beaconForm.expireMinutes" :min="10" :max="240" class="!w-[calc(100%-40px)]" />
             <span class="ml-2 text-gray-500">分钟</span>
           </el-form-item>
           
           <el-form-item label="校园点位" prop="pointId">
-            <el-select v-model="beaconForm.pointId" placeholder="请选择点位" class="w-full">
+            <el-select v-model="beaconForm.pointId" placeholder="请选择点位" class="w-full custom-select">
               <el-option 
                 v-for="point in campusPoints" 
                 :key="point.id" 
@@ -100,10 +115,12 @@
         </el-form>
         
         <template #footer>
-          <el-button @click="publishDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="handlePublish" :loading="publishLoading">
-            发布
-          </el-button>
+          <div class="dialog-footer">
+            <el-button @click="publishDialogVisible = false" class="!rounded-lg">取消</el-button>
+            <el-button type="primary" @click="handlePublish" :loading="publishLoading" class="!rounded-lg shadow-lg shadow-blue-200">
+              发布
+            </el-button>
+          </div>
         </template>
       </el-dialog>
     </div>
@@ -118,7 +135,7 @@ import { getNearbyEvents } from '@/api/event'
 import { publishBeacon, reportBeacon } from '@/api/beacon'
 import { getCampusPoints } from '@/api/user'
 import dayjs from 'dayjs'
-import { Plus, Loading, DocumentDelete, Clock, Location } from '@element-plus/icons-vue'
+import { Plus, Loading, DocumentDelete, Clock, Location, LocationInformation, InfoFilled, Warning } from '@element-plus/icons-vue'
 
 const loading = ref(false)
 const publishLoading = ref(false)
@@ -236,49 +253,32 @@ const formatTime = (time) => {
 .beacon-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 16px;
+  gap: 24px;
 }
 
 .beacon-card {
-  padding: 16px;
-  border: 1px solid #e4e7ed;
-  border-radius: 8px;
-  background: white;
-  transition: all 0.3s;
+  animation: fade-in 0.5s ease-out forwards;
+  opacity: 0;
 }
 
-.beacon-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+/* Custom Dialog Styles */
+:deep(.custom-dialog) {
+  border-radius: 16px;
+  overflow: hidden;
 }
 
-.beacon-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
+:deep(.el-dialog__header) {
+  margin-right: 0;
+  padding: 20px 24px;
+  border-bottom: 1px solid #f0f2f5;
 }
 
-.beacon-content {
-  margin-top: 12px;
-}
-
-.location-desc {
-  font-size: 15px;
+:deep(.el-dialog__title) {
+  font-weight: 700;
   color: #303133;
-  margin-bottom: 12px;
-  line-height: 1.5;
 }
 
-.beacon-info {
-  display: flex;
-  gap: 16px;
-}
-
-.info-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: #606266;
-  font-size: 14px;
+:deep(.el-dialog__body) {
+  padding: 24px;
 }
 </style>

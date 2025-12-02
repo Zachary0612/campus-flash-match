@@ -1,114 +1,129 @@
 <template>
   <Layout>
-    <div class="profile-page">
+    <div class="profile-page relative z-10">
       <el-row :gutter="24">
         <!-- 用户信息卡片 -->
-        <el-col :span="8">
-          <el-card shadow="hover" class="user-card">
-            <div class="user-avatar">
-              <el-avatar :size="100">{{ userStore.nickname.charAt(0) }}</el-avatar>
+        <el-col :span="8" class="mb-6">
+          <div class="glass rounded-2xl p-8 text-center shadow-lg backdrop-blur-lg bg-white/30 border-white/40 animate-slide-up" style="animation-delay: 0.1s">
+            <div class="relative inline-block mb-6">
+              <div class="absolute inset-0 bg-gradient-to-br from-primary to-purple-500 rounded-full blur opacity-50"></div>
+              <el-avatar :size="120" class="relative border-4 border-white shadow-md text-4xl font-bold bg-gradient-to-br from-primary to-blue-400">{{ userStore.nickname.charAt(0) }}</el-avatar>
             </div>
-            <div class="user-name">{{ userStore.nickname }}</div>
-            <div class="user-id">ID: {{ userStore.userId }}</div>
+            <div class="user-name text-2xl font-bold text-gray-800 mb-2">{{ userStore.nickname }}</div>
+            <div class="user-id text-sm text-gray-500 bg-gray-100/50 inline-block px-3 py-1 rounded-full mb-6">ID: {{ userStore.userId }}</div>
             
-            <el-divider />
-            
-            <div class="user-stats">
-              <div class="stat-item">
-                <div class="stat-label">信用分</div>
-                <div class="stat-value" :class="getScoreClass(userStore.creditScore)">
-                  {{ userStore.creditScore }}
+            <div class="border-t border-gray-200/50 pt-6">
+              <div class="user-stats">
+                <div class="stat-item">
+                  <div class="stat-label text-gray-500 text-sm mb-2 uppercase tracking-wider">信用分</div>
+                  <div class="stat-value text-5xl font-black" :class="getScoreClass(userStore.creditScore)">
+                    {{ userStore.creditScore }}
+                  </div>
+                  <div class="mt-2 text-xs text-gray-400">信用良好</div>
                 </div>
               </div>
             </div>
-          </el-card>
+          </div>
         </el-col>
         
         <!-- 位置绑定 -->
         <el-col :span="16">
-          <el-card shadow="hover" class="mb-6">
-            <template #header>
-              <span class="text-lg font-semibold">校园位置绑定</span>
-            </template>
+          <div class="glass rounded-2xl p-6 mb-6 shadow-lg backdrop-blur-lg bg-white/30 border-white/40 animate-slide-up" style="animation-delay: 0.2s">
+            <div class="flex items-center mb-6 border-b border-white/20 pb-4">
+              <el-icon class="text-xl mr-2 text-primary"><Location /></el-icon>
+              <span class="text-lg font-bold text-gray-800">校园位置绑定</span>
+            </div>
             
-            <el-form :model="locationForm" label-width="100px">
-              <el-form-item label="当前位置">
-                <el-select
-                  v-model="locationForm.pointId"
-                  placeholder="请选择校园点位"
-                  class="w-full"
-                  :loading="pointsLoading"
-                >
-                  <el-option 
-                    v-for="point in campusPoints" 
-                    :key="point.id" 
-                    :label="point.pointName" 
-                    :value="point.id" 
-                  />
-                </el-select>
-              </el-form-item>
-              
-              <el-form-item>
-                <el-button type="primary" @click="handleBindLocation" :loading="bindLoading">
-                  更新位置
-                </el-button>
-              </el-form-item>
+            <el-form :model="locationForm" label-width="0" class="mb-6">
+              <div class="flex gap-4 items-end">
+                <el-form-item class="flex-1 mb-0">
+                  <div class="text-sm text-gray-600 mb-2 font-medium">当前位置</div>
+                  <el-select
+                    v-model="locationForm.pointId"
+                    placeholder="请选择校园点位"
+                    class="w-full glass-select"
+                    :loading="pointsLoading"
+                    size="large"
+                  >
+                    <el-option 
+                      v-for="point in campusPoints" 
+                      :key="point.id" 
+                      :label="point.pointName" 
+                      :value="point.id" 
+                    />
+                  </el-select>
+                </el-form-item>
+                
+                <el-form-item class="mb-0">
+                  <el-button type="primary" size="large" @click="handleBindLocation" :loading="bindLoading" class="!rounded-lg shadow-md shadow-blue-200">
+                    更新位置
+                  </el-button>
+                </el-form-item>
+              </div>
             </el-form>
             
-            <el-alert
-              title="位置说明"
-              type="info"
-              :closable="false"
-            >
-              绑定校园位置后，系统将根据您的位置推荐附近的事件
-            </el-alert>
-          </el-card>
+            <div class="bg-blue-50/50 rounded-xl p-4 border border-blue-100">
+               <div class="flex items-start">
+                 <el-icon class="text-blue-500 mt-1 mr-2"><InfoFilled /></el-icon>
+                 <div class="text-sm text-blue-700">
+                   <p class="font-semibold mb-1">位置说明</p>
+                   <p class="opacity-80">绑定校园位置后，系统将根据您的位置推荐附近的事件，助您更快找到组织。</p>
+                 </div>
+               </div>
+            </div>
+          </div>
           
           <!-- WebSocket连接状态 -->
-          <el-card shadow="hover">
-            <template #header>
-              <span class="text-lg font-semibold">实时通知</span>
-            </template>
+          <div class="glass rounded-2xl p-6 shadow-lg backdrop-blur-lg bg-white/30 border-white/40 animate-slide-up" style="animation-delay: 0.3s">
+            <div class="flex items-center mb-6 border-b border-white/20 pb-4">
+              <el-icon class="text-xl mr-2 text-warning"><Bell /></el-icon>
+              <span class="text-lg font-bold text-gray-800">实时通知</span>
+            </div>
             
-            <div class="connection-status">
-              <div class="status-item">
-                <span class="status-label">WebSocket状态：</span>
-                <el-tag :type="wsStore.connected ? 'success' : 'danger'" size="small">
+            <div class="flex items-center justify-between mb-6 bg-white/40 p-4 rounded-xl">
+              <div class="status-item flex items-center gap-3">
+                <span class="status-label font-medium text-gray-700">WebSocket状态</span>
+                <div class="flex items-center px-3 py-1 rounded-full text-sm font-bold" :class="wsStore.connected ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'">
+                  <div class="w-2 h-2 rounded-full mr-2" :class="wsStore.connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'"></div>
                   {{ wsStore.connected ? '已连接' : '未连接' }}
-                </el-tag>
+                </div>
               </div>
               
-              <div class="mt-4">
+              <div>
                 <el-button
                   v-if="!wsStore.connected"
                   type="primary"
                   @click="wsStore.connect()"
+                  class="!rounded-lg"
                 >
-                  连接
+                  连接服务
                 </el-button>
                 <el-button
                   v-else
                   type="danger"
+                  plain
                   @click="wsStore.disconnect()"
+                  class="!rounded-lg"
                 >
-                  断开
+                  断开连接
                 </el-button>
               </div>
             </div>
             
-            <el-alert
-              title="实时通知说明"
-              type="info"
-              :closable="false"
-              class="mt-4"
-            >
-              <ul class="tips-list">
-                <li>事件满员时会收到实时通知</li>
-                <li>事件结算时会收到结算结果</li>
-                <li>新成员加入时会收到提醒</li>
-              </ul>
-            </el-alert>
-          </el-card>
+            <div class="bg-gray-50/50 rounded-xl p-4 border border-gray-100">
+               <div class="flex items-start">
+                 <el-icon class="text-gray-500 mt-1 mr-2"><InfoFilled /></el-icon>
+                 <div class="text-sm text-gray-600">
+                   <p class="font-semibold mb-2">通知功能说明</p>
+                   <ul class="space-y-1 pl-1">
+                     <li class="flex items-center"><div class="w-1 h-1 rounded-full bg-gray-400 mr-2"></div>事件满员时会收到实时通知</li>
+                     <li class="flex items-center"><div class="w-1 h-1 rounded-full bg-gray-400 mr-2"></div>事件结算时会收到结算结果</li>
+                     <li class="flex items-center"><div class="w-1 h-1 rounded-full bg-gray-400 mr-2"></div>新成员加入时会收到提醒</li>
+                   </ul>
+                 </div>
+               </div>
+            </div>
+          </div>
         </el-col>
       </el-row>
     </div>
@@ -122,6 +137,7 @@ import Layout from '@/components/Layout.vue'
 import { useUserStore } from '@/stores/user'
 import { useWebSocketStore } from '@/stores/websocket'
 import { bindLocation, getCampusPoints } from '@/api/user'
+import { Location, InfoFilled, Bell } from '@element-plus/icons-vue'
 
 const userStore = useUserStore()
 const wsStore = useWebSocketStore()
@@ -175,10 +191,10 @@ const handleBindLocation = async () => {
 }
 
 const getScoreClass = (score) => {
-  if (score >= 90) return 'score-excellent'
-  if (score >= 80) return 'score-good'
-  if (score >= 60) return 'score-normal'
-  return 'score-low'
+  if (score >= 90) return 'text-emerald-500'
+  if (score >= 80) return 'text-blue-500'
+  if (score >= 60) return 'text-yellow-500'
+  return 'text-red-500'
 }
 
 // 组件挂载时加载校园点位
@@ -189,96 +205,21 @@ onMounted(() => {
 
 <style scoped>
 .profile-page {
-  max-width: 1200px;
+  max-width: 1000px;
   margin: 0 auto;
+  padding-bottom: 40px;
 }
 
-.user-card {
-  text-align: center;
+/* Glass select customization */
+:deep(.glass-select .el-input__wrapper) {
+  background-color: rgba(255, 255, 255, 0.8);
+  border-radius: 8px;
+  box-shadow: none;
+  border: 1px solid #e5e7eb;
 }
 
-.user-avatar {
-  margin: 24px 0;
-}
-
-.user-name {
-  font-size: 24px;
-  font-weight: bold;
-  color: #303133;
-  margin-bottom: 8px;
-}
-
-.user-id {
-  font-size: 14px;
-  color: #909399;
-  margin-bottom: 16px;
-}
-
-.user-stats {
-  padding: 16px 0;
-}
-
-.stat-item {
-  text-align: center;
-}
-
-.stat-label {
-  font-size: 14px;
-  color: #606266;
-  margin-bottom: 8px;
-}
-
-.stat-value {
-  font-size: 36px;
-  font-weight: bold;
-}
-
-.score-excellent {
-  color: #67c23a;
-}
-
-.score-good {
-  color: #409eff;
-}
-
-.score-normal {
-  color: #e6a23c;
-}
-
-.score-low {
-  color: #f56c6c;
-}
-
-.connection-status {
-  padding: 16px 0;
-}
-
-.status-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.status-label {
-  font-size: 15px;
-  color: #606266;
-}
-
-.tips-list {
-  list-style: none;
-  padding: 0;
-  margin: 8px 0 0 0;
-}
-
-.tips-list li {
-  padding: 4px 0;
-  color: #606266;
-}
-
-.tips-list li::before {
-  content: "• ";
-  color: #409eff;
-  font-weight: bold;
-  margin-right: 8px;
+:deep(.glass-select .el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px var(--el-color-primary);
+  background-color: white;
 }
 </style>

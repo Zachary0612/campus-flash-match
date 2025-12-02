@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS event_history (
     current_num INTEGER NOT NULL,
     expire_minutes INTEGER,
     ext_meta JSONB,
-    participants BIGINT[] DEFAULT NULL,
+    participants TEXT DEFAULT NULL,
     status VARCHAR(50) NOT NULL,
     create_time TIMESTAMP NOT NULL,
     expire_time TIMESTAMP NOT NULL,
@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS credit_record (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
     event_id VARCHAR(50),
-    score_change INTEGER NOT NULL,
+    change_score INTEGER NOT NULL,
     reason VARCHAR(255) NOT NULL,
-    create_time BIGINT NOT NULL
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

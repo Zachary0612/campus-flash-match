@@ -84,3 +84,36 @@ export function getCompletedEvents() {
     method: 'get'
   })
 }
+
+/**
+ * 获取事件详情
+ */
+export function getEventDetail(eventId) {
+  return request({
+    url: '/event/detail',
+    method: 'get',
+    params: { eventId }
+  })
+}
+
+/**
+ * 搜索事件
+ */
+export function searchEvents(data) {
+  return request({
+    url: '/event/search',
+    method: 'post',
+    data
+  })
+}
+
+/**
+ * 取消事件
+ */
+export function cancelEvent(eventId) {
+  return request({
+    url: '/event/cancel',
+    method: 'post',
+    params: { eventId }
+  })
+}

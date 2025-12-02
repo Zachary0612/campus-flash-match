@@ -12,12 +12,14 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.beans.factory.annotation.Autowired;
 import com.campus.dto.ResultDTO;
 import com.campus.dto.request.EventCreateDTO;
+import com.campus.dto.request.EventSearchDTO;
 import com.campus.dto.response.EventJoinResponseDTO;
 import com.campus.service.EventService;
 import com.campus.exception.BusinessException;
+import com.campus.vo.CompletedEventVO;
+import com.campus.vo.EventDetailVO;
 import com.campus.vo.EventHistoryVO;
 import com.campus.vo.NearbyEventVO;
-import com.campus.vo.CompletedEventVO;
 
 /**
  * 事件模块Controller：发起、参与、退出、查询附近事件、查询历史
@@ -122,5 +124,64 @@ public class EventController {
         Long userId = Long.valueOf(principal.getName());
         List<CompletedEventVO> completedEvents = eventService.getCompletedEvents(userId);
         return ResultDTO.success("查询成功", completedEvents);
+    }
+
+    /**
+     * 7. 获取事件详情
+     */
+    @GetMapping("/detail")
+    public ResultDTO<EventDetailVO> getEventDetail(
+            @RequestParam String eventId,
+            Principal principal) {
+        Long userId = null;
+        if (principal != null) {
+            userId = Long.valueOf(principal.getName());
+        }
+        EventDetailVO detail = eventService.getEventDetail(eventId, userId);
+        return ResultDTO.success("查询成功", detail);
+    }
+
+    /**
+     * 8. 搜索事件
+     */
+    @PostMapping("/search")
+    public ResultDTO<List<EventHistoryVO>> searchEvents(@RequestBody EventSearchDTO searchDTO) {
+        List<EventHistoryVO> events = eventService.searchEvents(searchDTO);
+        return ResultDTO.success("查询成功", events);
+    }
+
+    /**
+     * 9. 取消事件（仅发起者可操作）
+     */
+    @PostMapping("/cancel")
+    public ResultDTO<Void> cancelEvent(
+            @RequestParam String eventId,
+            Principal principal) {
+        if (principal == null) {
+            throw new BusinessException("用户身份无效");
+        }
+        
+        Long userId = Long.valueOf(principal.getName());
+        eventService.cancelEvent(eventId, userId);
+        return ResultDTO.success("事件已取消");
+    }
+    
+    /**
+     * 10. 查询我的事件（发起的+参与的）
+     * @param type 类型：all-全部, created-我发起的, joined-我参与的
+     */
+    @GetMapping("/my-events")
+    public ResultDTO<List<EventHistoryVO>> getMyEvents(
+            @RequestParam(required = false, defaultValue = "all") String type,
+            @RequestParam(required = false, defaultValue = "1") Integer pageNum,
+            @RequestParam(required = false, defaultValue = "10") Integer pageSize,
+            Principal principal) {
+        if (principal == null) {
+            throw new BusinessException("用户身份无效");
+        }
+        
+        Long userId = Long.valueOf(principal.getName());
+        List<EventHistoryVO> events = eventService.getMyEvents(userId, type, pageNum, pageSize);
+        return ResultDTO.success("查询成功", events);
     }
 }

@@ -2,9 +2,11 @@ package com.campus.service;
 
 import java.util.List;
 import com.campus.dto.request.EventCreateDTO;
+import com.campus.dto.request.EventSearchDTO;
 import com.campus.dto.response.EventJoinResponseDTO;
 import com.campus.dto.SettlementMsgDTO;
 import com.campus.vo.CompletedEventVO;
+import com.campus.vo.EventDetailVO;
 import com.campus.vo.EventHistoryVO;
 import com.campus.vo.NearbyEventVO;
 
@@ -66,4 +68,36 @@ public interface EventService {
      * @param msgDTO 结算消息（事件ID、结算状态）
      */
     void settleEvent(SettlementMsgDTO msgDTO);
+    
+    /**
+     * 获取事件详情
+     * @param eventId 事件ID
+     * @param userId 当前用户ID（用于判断是否已收藏/参与）
+     * @return 事件详情
+     */
+    EventDetailVO getEventDetail(String eventId, Long userId);
+    
+    /**
+     * 搜索事件
+     * @param searchDTO 搜索条件
+     * @return 事件列表
+     */
+    List<EventHistoryVO> searchEvents(EventSearchDTO searchDTO);
+    
+    /**
+     * 取消事件（仅发起者可操作）
+     * @param eventId 事件ID
+     * @param userId 用户ID
+     */
+    void cancelEvent(String eventId, Long userId);
+    
+    /**
+     * 查询用户的所有事件（发起的+参与的）
+     * @param userId 用户ID
+     * @param type 类型：all-全部, created-发起的, joined-参与的
+     * @param pageNum 页码
+     * @param pageSize 每页条数
+     * @return 事件历史列表（包含详细信息）
+     */
+    List<EventHistoryVO> getMyEvents(Long userId, String type, Integer pageNum, Integer pageSize);
 }

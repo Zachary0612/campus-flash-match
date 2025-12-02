@@ -68,7 +68,7 @@ public class CreditServiceImpl implements CreditService {
         CreditRecordVO vo = new CreditRecordVO();
         vo.setRecordId(record.getId());
         vo.setEventId(record.getEventId());
-        vo.setChangeScore(record.getScoreChange());
+        vo.setChangeScore(record.getChangeScore());
         vo.setReason(record.getReason());
         vo.setCreateTime(record.getCreateTime());
         return vo;

@@ -63,4 +63,29 @@ public class SysUser {
      * 更新时间
      */
     private LocalDateTime updateTime;
+    
+    /**
+     * 个人简介
+     */
+    private String bio;
+    
+    /**
+     * 性别（0-未知，1-男，2-女）
+     */
+    private Integer gender;
+    
+    /**
+     * 专业
+     */
+    private String major;
+    
+    /**
+     * 年级
+     */
+    private String grade;
+    
+    /**
+     * 兴趣标签（逗号分隔）
+     */
+    private String interests;
 }

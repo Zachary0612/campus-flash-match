@@ -27,6 +27,7 @@ import com.campus.dto.request.EventCreateDTO;
 import com.campus.dto.response.EventJoinResponseDTO;
 import com.campus.dto.SettlementMsgDTO;
 import com.campus.service.EventService;
+import com.campus.service.NotificationService;
 import com.campus.service.UserService;
 import com.campus.util.RabbitMqProducer;
 import com.campus.repository.EventCacheRepository;
@@ -36,7 +37,12 @@ import com.campus.exception.BusinessException;
 import com.campus.constant.EventConstant;
 import com.campus.constant.RedisConstant;
 import com.alibaba.fastjson.JSON;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
+import com.campus.dto.request.EventSearchDTO;
+import com.campus.entity.SysUser;
+import com.campus.mapper.SysUserMapper;
 import com.campus.vo.CompletedEventVO;
+import com.campus.vo.EventDetailVO;
 import com.campus.vo.EventHistoryVO;
 import com.campus.vo.EventParticipantVO;
 import com.campus.vo.NearbyEventVO;
@@ -49,11 +55,13 @@ public class EventServiceImpl implements EventService {
 
     private final CampusPointMapper campusPointMapper;
     private final EventHistoryMapper eventHistoryMapper;
+    private final SysUserMapper sysUserMapper;
     private final UserService userService;
     private final RabbitMqProducer rabbitMqProducer;
     private final EventCacheRepository eventCacheRepository;
-    private final EventNotificationService notificationService;
+    private final EventNotificationService eventNotificationService;
     private final EventSettlementService settlementService;
+    private final NotificationService notificationService;
 
     // 事件默认搜索半径（米）
     @Value("${campus.event.default-radius}")
@@ -66,18 +74,22 @@ public class EventServiceImpl implements EventService {
     @Autowired
     public EventServiceImpl(CampusPointMapper campusPointMapper,
                           EventHistoryMapper eventHistoryMapper,
+                          SysUserMapper sysUserMapper,
                           UserService userService,
                           RabbitMqProducer rabbitMqProducer,
                           EventCacheRepository eventCacheRepository,
-                          EventNotificationService notificationService,
-                          EventSettlementService settlementService) {
+                          EventNotificationService eventNotificationService,
+                          EventSettlementService settlementService,
+                          NotificationService notificationService) {
         this.campusPointMapper = campusPointMapper;
         this.eventHistoryMapper = eventHistoryMapper;
+        this.sysUserMapper = sysUserMapper;
         this.userService = userService;
         this.rabbitMqProducer = rabbitMqProducer;
         this.eventCacheRepository = eventCacheRepository;
-        this.notificationService = notificationService;
+        this.eventNotificationService = eventNotificationService;
         this.settlementService = settlementService;
+        this.notificationService = notificationService;
     }
 
     /**
@@ -164,7 +176,7 @@ public class EventServiceImpl implements EventService {
             eventHistoryMapper.insertEventHistory(eventHistory);
 
             // 6.5 推送实时通知（1公里内在线用户）
-            notificationService.pushNearbyUserNotify(eventId, dto.getTitle(), point.getLongitude(), point.getLatitude());
+            eventNotificationService.pushNearbyUserNotify(eventId, dto.getTitle(), point.getLongitude(), point.getLatitude());
 
         } catch (Exception e) {
             // 异常回滚：删除已存储的Redis数据
@@ -220,20 +232,26 @@ public class EventServiceImpl implements EventService {
             return new ArrayList<>();
         }
 
+        System.out.println("开始处理 " + geoResults.getContent().size() + " 个GEO结果");
+        
         // 过滤并封装结果
         List<NearbyEventVO> resultList = new ArrayList<>();
         for (GeoResult<RedisGeoCommands.GeoLocation<Object>> geoResult : geoResults.getContent()) {
             String eventId = (String) geoResult.getContent().getName();
             double distance = geoResult.getDistance().getValue(); // 距离（米）
 
+            System.out.println("处理事件: " + eventId + ", 距离: " + distance + "米");
+
             // 校验事件是否存在
             if (!eventCacheRepository.eventExists(eventId)) {
+                System.out.println("  -> 跳过: 事件不存在");
                 continue;
             }
 
             try {
                 // 校验事件是否过期
                 if (eventCacheRepository.isEventExpired(eventId)) {
+                    System.out.println("  -> 跳过: 事件已过期，清理数据");
                     eventCacheRepository.cleanupEventData(eventId, eventType);
                     continue;
                 }
@@ -246,7 +264,10 @@ public class EventServiceImpl implements EventService {
                 Object descriptionObj = eventCacheRepository.getEventField(eventId, "description");
                 Object mediaObj = eventCacheRepository.getEventField(eventId, "media_urls");
                 
+                System.out.println("  -> currentNum: " + currentNumObj + ", targetNum: " + targetNumObj);
+                
                 if (currentNumObj == null || targetNumObj == null) {
+                    System.out.println("  -> 跳过: currentNum或targetNum为null");
                     continue;
                 }
                 
@@ -255,9 +276,12 @@ public class EventServiceImpl implements EventService {
                 
                 // 满员跳过
                 if (currentNum >= targetNum) {
+                    System.out.println("  -> 跳过: 事件已满员 (" + currentNum + "/" + targetNum + ")");
                     continue;
                 }
 
+                System.out.println("  -> 通过所有检查，添加到结果列表");
+                
                 // 封装VO
                 NearbyEventVO vo = new NearbyEventVO();
                 vo.setEventId(eventId);
@@ -278,10 +302,12 @@ public class EventServiceImpl implements EventService {
                 resultList.add(vo);
             } catch (Exception e) {
                 System.err.println("处理事件时发生错误，事件ID: " + eventId + "，错误信息: " + e.getMessage());
+                e.printStackTrace();
                 continue;
             }
         }
         
+        System.out.println("最终返回 " + resultList.size() + " 个事件");
         return resultList;
     }
 
@@ -308,6 +334,8 @@ public class EventServiceImpl implements EventService {
         if (!result.isSuccess()) {
             // 根据失败原因返回具体错误信息
             String reason = result.getFailureReason();
+            System.err.println("用户参与事件失败: eventId=" + eventId + ", userId=" + userId + ", reason=" + reason);
+            
             if ("EVENT_NOT_FOUND".equals(reason)) {
                 throw new BusinessException("事件已过期或已结算");
             } else if ("ALREADY_JOINED".equals(reason)) {
@@ -316,6 +344,10 @@ public class EventServiceImpl implements EventService {
                 throw new BusinessException("事件已满员，无法参与");
             } else if ("BEACON_FULL".equals(reason)) {
                 throw new BusinessException("信标事件仅支持1人参与，已满员");
+            } else if ("TRANSACTION_FAILED".equals(reason)) {
+                throw new BusinessException("参与失败，事件可能刚刚满员，请刷新后重试");
+            } else if ("INTERNAL_ERROR".equals(reason) || "REDIS_ERROR".equals(reason)) {
+                throw new BusinessException("系统繁忙，请稍后重试");
             } else {
                 throw new BusinessException("参与失败，请重试");
             }
@@ -325,18 +357,48 @@ public class EventServiceImpl implements EventService {
         Integer currentNum = result.getCurrentNum();
         Integer targetNum = result.getTargetNum();
         boolean isFull = currentNum.equals(targetNum);
+        
+        System.out.println("JoinEvent Debug: eventId=" + eventId + ", currentNum=" + currentNum + ", targetNum=" + targetNum + ", isFull=" + isFull);
 
-        // 6. 满员则发送结算消息到MQ
+        // 5.5 通知事件发起者有新成员加入（仅当未满员时）
+        if (!isFull) {
+            try {
+                Object ownerObj = eventCacheRepository.getEventField(eventId, "owner");
+                Object titleObj = eventCacheRepository.getEventField(eventId, "title");
+                if (ownerObj != null && titleObj != null) {
+                    Long ownerId = Long.valueOf(String.valueOf(ownerObj));
+                    if (!ownerId.equals(userId)) {
+                        String title = String.valueOf(titleObj);
+                        String notifyMsg = String.format("有新成员加入您的事件【%s】（%d/%d）", title, currentNum, targetNum);
+                        notificationService.sendNotification(ownerId, "event_joined", "事件参与", notifyMsg, eventId, userId);
+                    }
+                }
+            } catch (Exception e) {
+                // 发送通知失败不影响主流程
+                System.err.println("发送参与通知失败: " + e.getMessage());
+            }
+        }
+
+        // 6. 满员则直接同步结算（不依赖异步MQ，确保Redis数据未被清理前完成结算）
         if (isFull) {
-            SettlementMsgDTO msgDTO = new SettlementMsgDTO();
-            msgDTO.setEventId(eventId);
-            msgDTO.setStatus(EventConstant.SETTLE_STATUS_SUCCESS);
-            msgDTO.setSendTime(new Date());
-            rabbitMqProducer.sendSettlementMsg(msgDTO);
+            System.out.println("JoinEvent Debug: Event full, triggering synchronous settlement for " + eventId);
+            
+            // 在结算前先获取Redis数据，避免被定时任务清理
+            Map<Object, Object> eventInfo = eventCacheRepository.getEventInfo(eventId);
+            Set<Object> participantsSet = eventCacheRepository.getParticipants(eventId);
+            
+            if (eventInfo != null && participantsSet != null) {
+                System.out.println("JoinEvent Debug: Successfully retrieved Redis data before settlement");
+                // 直接同步调用结算服务，传入已获取的数据
+                settlementService.settleEventWithData(eventId, EventConstant.SETTLE_STATUS_SUCCESS, eventInfo, participantsSet);
+            } else {
+                System.out.println("JoinEvent Debug: Redis data already missing, falling back to basic settlement");
+                // 如果Redis数据已丢失，仍尝试基本结算
+                settlementService.settleEvent(eventId, EventConstant.SETTLE_STATUS_SUCCESS);
+            }
 
-            // 推送满员通知给所有参与者
-            Set<Object> participants = eventCacheRepository.getParticipants(eventId);
-            notificationService.pushEventFullNotify(eventId, participants, currentNum, targetNum);
+            // 推送满员通知给所有参与者（注意：结算后Redis数据已清理，需要从结算前获取）
+            // 通知已在settlementService.settleEvent中推送，这里不再重复
         }
 
         // 7. 封装响应
@@ -392,44 +454,59 @@ public class EventServiceImpl implements EventService {
 
     @Override
     public List<EventHistoryVO> getEventHistory(Long userId, Integer pageNum, Integer pageSize) {
-        // 查询用户参与的事件历史
-        Page<EventHistory> page = new Page<>(pageNum, pageSize);
-        QueryWrapper<EventHistory> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("user_id", userId)
-                .orderByDesc("create_time");
-        Page<EventHistory> resultPage = eventHistoryMapper.selectPage(page, queryWrapper);
-
-        // 封装VO
-        List<EventHistoryVO> voList = new ArrayList<>();
-        for (EventHistory history : resultPage.getRecords()) {
-            EventHistoryVO vo = new EventHistoryVO();
-            vo.setEventId(history.getEventId());
-            vo.setEventType(history.getEventType());
-            vo.setTitle(history.getTitle());
-            vo.setTargetNum(history.getTargetNum());
-            vo.setCurrentNum(history.getCurrentNum());
-            vo.setExpireMinutes(history.getExpireMinutes());
-            vo.setStatus(history.getStatus());
-            vo.setExtMeta(history.getExtMeta());
-            vo.setCreateTime(history.getCreateTime());
-            vo.setExpireTime(history.getExpireTime());
-            vo.setSettleTime(history.getSettleTime());
-            Map<String, Object> metaMap = parseExtMeta(history.getExtMeta());
-            vo.setDescription(metaMap.get("description") != null ? String.valueOf(metaMap.get("description")) : null);
-            vo.setMediaUrls(extractMediaUrls(metaMap));
-            voList.add(vo);
-        }
-
-        return voList;
+        // 调用新方法，查询所有事件（发起的+参与的）
+        return getMyEvents(userId, "all", pageNum, pageSize);
     }
 
     @Override
     public List<CompletedEventVO> getCompletedEvents(Long userId) {
-        QueryWrapper<EventHistory> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("user_id", userId)
-                .in("status", EventConstant.EVENT_STATUS_COMPLETED, EventConstant.EVENT_STATUS_EXPIRED)
-                .orderByDesc("settle_time");
-        List<EventHistory> records = eventHistoryMapper.selectList(queryWrapper);
+        // 查询用户参与的所有已完成事件（包括发起的和加入的）
+        List<EventHistory> allEvents = eventHistoryMapper.findAllUserEvents(userId);
+        
+        // 过滤出已完成的事件
+        List<EventHistory> records = new ArrayList<>();
+        for (EventHistory event : allEvents) {
+            if (EventConstant.EVENT_STATUS_COMPLETED.equals(event.getStatus()) 
+                || EventConstant.EVENT_STATUS_EXPIRED.equals(event.getStatus())
+                || "settled".equals(event.getStatus())) {
+                records.add(event);
+            }
+        }
+        
+        // 按结算时间排序
+        records.sort((a, b) -> {
+            if (a.getSettleTime() == null && b.getSettleTime() == null) return 0;
+            if (a.getSettleTime() == null) return 1;
+            if (b.getSettleTime() == null) return -1;
+            return b.getSettleTime().compareTo(a.getSettleTime());
+        });
+
+        // 收集用户ID用于批量查询
+        Set<Long> userIds = new java.util.HashSet<>();
+        for (EventHistory record : records) {
+            userIds.add(record.getUserId());
+            if (record.getParticipants() != null) {
+                try {
+                    List<Map> pList = JSON.parseArray(record.getParticipants(), Map.class);
+                    for (Map p : pList) {
+                        if (p.get("userId") != null) {
+                            userIds.add(Long.valueOf(String.valueOf(p.get("userId"))));
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+        
+        // 批量查询用户信息
+        Map<Long, SysUser> userMap = new HashMap<>();
+        if (!userIds.isEmpty()) {
+            QueryWrapper<SysUser> userQuery = new QueryWrapper<>();
+            userQuery.in("id", userIds);
+            List<SysUser> users = sysUserMapper.selectList(userQuery);
+            for (SysUser user : users) {
+                userMap.put(user.getId(), user);
+            }
+        }
 
         List<CompletedEventVO> result = new ArrayList<>();
         for (EventHistory record : records) {
@@ -448,10 +525,40 @@ public class EventServiceImpl implements EventService {
             Map<String, Object> metaMap = parseExtMeta(record.getExtMeta());
             vo.setDescription(metaMap.get("description") != null ? String.valueOf(metaMap.get("description")) : null);
             vo.setMediaUrls(extractMediaUrls(metaMap));
+            
+            // 设置是否为发起者
+            vo.setIsOwner(record.getUserId().equals(userId));
+            
+            // 设置发起者信息
+            SysUser owner = userMap.get(record.getUserId());
+            if (owner != null) {
+                vo.setOwnerNickname(owner.getNickname());
+                vo.setOwnerAvatar(owner.getAvatar());
+            }
 
+            // 解析参与者列表并填充用户信息
             List<EventParticipantVO> participantVOList = new ArrayList<>();
             if (StringUtils.hasText(record.getParticipants())) {
-                participantVOList = JSON.parseArray(record.getParticipants(), EventParticipantVO.class);
+                try {
+                    List<Map> pList = JSON.parseArray(record.getParticipants(), Map.class);
+                    for (Map p : pList) {
+                        EventParticipantVO pvo = new EventParticipantVO();
+                        if (p.get("userId") != null) {
+                            Long pUserId = Long.valueOf(String.valueOf(p.get("userId")));
+                            pvo.setUserId(pUserId);
+                            SysUser pUser = userMap.get(pUserId);
+                            if (pUser != null) {
+                                pvo.setNickname(pUser.getNickname());
+                                pvo.setAvatar(pUser.getAvatar());
+                            } else if (p.get("nickname") != null) {
+                                pvo.setNickname(String.valueOf(p.get("nickname")));
+                            }
+                            pvo.setOwner(Boolean.TRUE.equals(p.get("owner")));
+                            pvo.setStatus(p.get("status") != null ? String.valueOf(p.get("status")) : null);
+                            participantVOList.add(pvo);
+                        }
+                    }
+                } catch (Exception ignored) {}
             }
             vo.setParticipants(participantVOList);
             result.add(vo);
@@ -514,5 +621,394 @@ public class EventServiceImpl implements EventService {
             return parseMediaUrls((String) value);
         }
         return Collections.emptyList();
+    }
+    
+    @Override
+    public EventDetailVO getEventDetail(String eventId, Long userId) {
+        // 先尝试从Redis获取活跃事件
+        Map<Object, Object> eventInfo = eventCacheRepository.getEventInfo(eventId);
+        
+        if (eventInfo != null && !eventInfo.isEmpty()) {
+            return buildEventDetailFromRedis(eventId, eventInfo, userId);
+        }
+        
+        // 从数据库获取历史事件
+        QueryWrapper<EventHistory> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("event_id", eventId);
+        EventHistory event = eventHistoryMapper.selectOne(queryWrapper);
+        
+        if (event == null) {
+            throw new BusinessException("事件不存在");
+        }
+        
+        return buildEventDetailFromDB(event, userId);
+    }
+    
+    private EventDetailVO buildEventDetailFromRedis(String eventId, Map<Object, Object> eventInfo, Long userId) {
+        EventDetailVO vo = new EventDetailVO();
+        vo.setEventId(eventId);
+        vo.setTitle(String.valueOf(eventInfo.get("title")));
+        vo.setEventType(String.valueOf(eventInfo.get("event_type")));
+        vo.setDescription(eventInfo.get("description") != null ? String.valueOf(eventInfo.get("description")) : null);
+        vo.setTargetNum(Integer.valueOf(String.valueOf(eventInfo.get("target_num"))));
+        vo.setCurrentNum(Integer.valueOf(String.valueOf(eventInfo.get("current_num"))));
+        vo.setExpireMinutes(Integer.valueOf(String.valueOf(eventInfo.get("expire_minutes"))));
+        vo.setStatus(EventConstant.EVENT_STATUS_ACTIVE);
+        
+        Long ownerId = Long.valueOf(String.valueOf(eventInfo.get("owner")));
+        vo.setOwnerId(ownerId);
+        
+        // 获取发起者信息
+        SysUser owner = userService.getUserById(ownerId);
+        if (owner != null) {
+            vo.setOwnerNickname(owner.getNickname());
+            vo.setOwnerAvatar(owner.getAvatar());
+            vo.setOwnerCreditScore(owner.getCreditScore());
+        }
+        
+        // 解析扩展元数据
+        String extMetaStr = String.valueOf(eventInfo.get("ext_meta"));
+        vo.setExtMeta(parseExtMeta(extMetaStr));
+        
+        // 解析媒体URL
+        if (eventInfo.get("media_urls") != null) {
+            vo.setMediaUrls(parseMediaUrls(String.valueOf(eventInfo.get("media_urls"))));
+        }
+        
+        // 获取参与者
+        Set<Object> participantsSet = eventCacheRepository.getParticipants(eventId);
+        List<EventParticipantVO> participants = new ArrayList<>();
+        for (Object obj : participantsSet) {
+            Long participantId = Long.valueOf(String.valueOf(obj));
+            SysUser user = userService.getUserById(participantId);
+            if (user != null) {
+                EventParticipantVO pvo = new EventParticipantVO();
+                pvo.setUserId(participantId);
+                pvo.setNickname(user.getNickname());
+                pvo.setOwner(participantId.equals(ownerId));
+                participants.add(pvo);
+            }
+        }
+        vo.setParticipants(participants);
+        
+        // 时间信息
+        vo.setCreateTime(LocalDateTime.parse(String.valueOf(eventInfo.get("create_time"))));
+        vo.setExpireTime(LocalDateTime.parse(String.valueOf(eventInfo.get("expire_time"))));
+        
+        // 用户相关状态
+        if (userId != null) {
+            vo.setIsJoined(participantsSet.contains(userId.toString()) || participantsSet.contains(userId));
+            // 收藏状态需要查询数据库
+            vo.setIsFavorite(false); // 活跃事件暂不支持收藏状态查询
+        }
+        
+        vo.setCommentCount(0);
+        vo.setFavoriteCount(0);
+        
+        return vo;
+    }
+    
+    private EventDetailVO buildEventDetailFromDB(EventHistory event, Long userId) {
+        EventDetailVO vo = new EventDetailVO();
+        vo.setEventId(event.getEventId());
+        vo.setTitle(event.getTitle());
+        vo.setEventType(event.getEventType());
+        vo.setTargetNum(event.getTargetNum());
+        vo.setCurrentNum(event.getCurrentNum());
+        vo.setExpireMinutes(event.getExpireMinutes());
+        vo.setStatus(event.getStatus());
+        vo.setOwnerId(event.getUserId());
+        
+        // 获取发起者信息
+        SysUser owner = userService.getUserById(event.getUserId());
+        if (owner != null) {
+            vo.setOwnerNickname(owner.getNickname());
+            vo.setOwnerAvatar(owner.getAvatar());
+            vo.setOwnerCreditScore(owner.getCreditScore());
+        }
+        
+        // 解析扩展元数据
+        vo.setExtMeta(parseExtMeta(event.getExtMeta()));
+        if (vo.getExtMeta() != null && vo.getExtMeta().containsKey("description")) {
+            vo.setDescription(String.valueOf(vo.getExtMeta().get("description")));
+        }
+        vo.setMediaUrls(extractMediaUrls(vo.getExtMeta()));
+        
+        // 解析参与者
+        if (event.getParticipants() != null) {
+            try {
+                List<EventParticipantVO> participants = JSON.parseArray(event.getParticipants(), EventParticipantVO.class);
+                vo.setParticipants(participants);
+            } catch (Exception e) {
+                vo.setParticipants(new ArrayList<>());
+            }
+        }
+        
+        vo.setCreateTime(event.getCreateTime());
+        vo.setExpireTime(event.getExpireTime());
+        vo.setSettleTime(event.getSettleTime());
+        
+        // 用户相关状态
+        if (userId != null) {
+            // 检查是否参与
+            boolean isJoined = event.getUserId().equals(userId);
+            if (!isJoined && event.getParticipants() != null) {
+                isJoined = event.getParticipants().contains(userId.toString());
+            }
+            vo.setIsJoined(isJoined);
+            vo.setIsFavorite(false); // 需要注入FavoriteService来查询
+        }
+        
+        vo.setCommentCount(0);
+        vo.setFavoriteCount(0);
+        
+        return vo;
+    }
+    
+    @Override
+    public List<EventHistoryVO> searchEvents(EventSearchDTO searchDTO) {
+        QueryWrapper<EventHistory> queryWrapper = new QueryWrapper<>();
+        
+        // 关键词搜索
+        if (searchDTO.getKeyword() != null && !searchDTO.getKeyword().isBlank()) {
+            queryWrapper.like("title", searchDTO.getKeyword());
+        }
+        
+        // 事件类型
+        if (searchDTO.getEventType() != null && !searchDTO.getEventType().isBlank()) {
+            queryWrapper.eq("event_type", searchDTO.getEventType());
+        }
+        
+        // 事件状态
+        if (searchDTO.getStatus() != null && !searchDTO.getStatus().isBlank()) {
+            queryWrapper.eq("status", searchDTO.getStatus());
+        }
+        
+        // 发起者
+        if (searchDTO.getOwnerId() != null) {
+            queryWrapper.eq("user_id", searchDTO.getOwnerId());
+        }
+        
+        // 目标人数范围
+        if (searchDTO.getMinTargetNum() != null) {
+            queryWrapper.ge("target_num", searchDTO.getMinTargetNum());
+        }
+        if (searchDTO.getMaxTargetNum() != null) {
+            queryWrapper.le("target_num", searchDTO.getMaxTargetNum());
+        }
+        
+        // 时间范围
+        if (searchDTO.getStartTime() != null && !searchDTO.getStartTime().isBlank()) {
+            queryWrapper.ge("create_time", searchDTO.getStartTime());
+        }
+        if (searchDTO.getEndTime() != null && !searchDTO.getEndTime().isBlank()) {
+            queryWrapper.le("create_time", searchDTO.getEndTime());
+        }
+        
+        // 排序
+        String sortBy = searchDTO.getSortBy() != null ? searchDTO.getSortBy() : "create_time";
+        boolean isAsc = "asc".equalsIgnoreCase(searchDTO.getSortOrder());
+        queryWrapper.orderBy(true, isAsc, sortBy);
+        
+        // 分页
+        Page<EventHistory> page = new Page<>(searchDTO.getPageNum(), searchDTO.getPageSize());
+        Page<EventHistory> result = eventHistoryMapper.selectPage(page, queryWrapper);
+        
+        List<EventHistoryVO> voList = new ArrayList<>();
+        for (EventHistory event : result.getRecords()) {
+            EventHistoryVO vo = new EventHistoryVO();
+            vo.setEventId(event.getEventId());
+            vo.setTitle(event.getTitle());
+            vo.setEventType(event.getEventType());
+            vo.setTargetNum(event.getTargetNum());
+            vo.setCurrentNum(event.getCurrentNum());
+            vo.setStatus(event.getStatus());
+            vo.setCreateTime(event.getCreateTime());
+            voList.add(vo);
+        }
+        
+        return voList;
+    }
+    
+    @Override
+    public void cancelEvent(String eventId, Long userId) {
+        // 检查事件是否存在且为活跃状态
+        Map<Object, Object> eventInfo = eventCacheRepository.getEventInfo(eventId);
+        
+        if (eventInfo == null || eventInfo.isEmpty()) {
+            throw new BusinessException("事件不存在或已结束");
+        }
+        
+        Long ownerId = Long.valueOf(String.valueOf(eventInfo.get("owner")));
+        if (!ownerId.equals(userId)) {
+            throw new BusinessException("只有发起者可以取消事件");
+        }
+        
+        String eventType = String.valueOf(eventInfo.get("event_type"));
+        
+        // 更新数据库状态
+        UpdateWrapper<EventHistory> updateWrapper = new UpdateWrapper<>();
+        updateWrapper.eq("event_id", eventId)
+                .set("status", EventConstant.EVENT_STATUS_CANCELLED)
+                .set("settle_time", LocalDateTime.now());
+        eventHistoryMapper.update(null, updateWrapper);
+        
+        // 通知参与者
+        Set<Object> participantsSet = eventCacheRepository.getParticipants(eventId);
+        List<Long> participantIds = new ArrayList<>();
+        for (Object obj : participantsSet) {
+            Long participantId = Long.valueOf(String.valueOf(obj));
+            if (!participantId.equals(userId)) {
+                participantIds.add(participantId);
+            }
+        }
+        
+        String title = String.valueOf(eventInfo.get("title"));
+        eventNotificationService.pushSettleNotify(participantIds, eventId, title, EventConstant.EVENT_STATUS_CANCELLED);
+        
+        // 清理Redis数据
+        eventCacheRepository.cleanupEventData(eventId, eventType);
+    }
+    
+    @Override
+    public List<EventHistoryVO> getMyEvents(Long userId, String type, Integer pageNum, Integer pageSize) {
+        List<EventHistory> events;
+        
+        // 根据类型查询不同的事件
+        if ("created".equals(type)) {
+            // 只查询发起的事件
+            Page<EventHistory> page = new Page<>(pageNum, pageSize);
+            QueryWrapper<EventHistory> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("user_id", userId).orderByDesc("create_time");
+            events = eventHistoryMapper.selectPage(page, queryWrapper).getRecords();
+        } else if ("joined".equals(type)) {
+            // 只查询参与的事件（不包括自己发起的）
+            events = eventHistoryMapper.findJoinedEvents(userId);
+            // 手动分页
+            int start = (pageNum - 1) * pageSize;
+            int end = Math.min(start + pageSize, events.size());
+            if (start < events.size()) {
+                events = events.subList(start, end);
+            } else {
+                events = new ArrayList<>();
+            }
+        } else {
+            // 查询所有事件（发起的 + 参与的）
+            events = eventHistoryMapper.findAllUserEvents(userId);
+            // 手动分页
+            int start = (pageNum - 1) * pageSize;
+            int end = Math.min(start + pageSize, events.size());
+            if (start < events.size()) {
+                events = events.subList(start, end);
+            } else {
+                events = new ArrayList<>();
+            }
+        }
+        
+        // 收集所有需要查询的用户ID
+        Set<Long> userIds = new java.util.HashSet<>();
+        for (EventHistory event : events) {
+            userIds.add(event.getUserId());
+            // 解析参与者
+            if (event.getParticipants() != null && !event.getParticipants().isEmpty()) {
+                try {
+                    List<Map> participantList = JSON.parseArray(event.getParticipants(), Map.class);
+                    for (Map p : participantList) {
+                        Object uid = p.get("userId");
+                        if (uid != null) {
+                            userIds.add(Long.valueOf(String.valueOf(uid)));
+                        }
+                    }
+                } catch (Exception e) {
+                    // 忽略解析错误
+                }
+            }
+        }
+        
+        // 批量查询用户信息
+        Map<Long, SysUser> userMap = new HashMap<>();
+        if (!userIds.isEmpty()) {
+            QueryWrapper<SysUser> userQuery = new QueryWrapper<>();
+            userQuery.in("id", userIds);
+            List<SysUser> users = sysUserMapper.selectList(userQuery);
+            for (SysUser user : users) {
+                userMap.put(user.getId(), user);
+            }
+        }
+        
+        // 封装VO
+        List<EventHistoryVO> voList = new ArrayList<>();
+        for (EventHistory event : events) {
+            EventHistoryVO vo = new EventHistoryVO();
+            vo.setEventId(event.getEventId());
+            vo.setEventType(event.getEventType());
+            vo.setTitle(event.getTitle());
+            vo.setTargetNum(event.getTargetNum());
+            vo.setCurrentNum(event.getCurrentNum());
+            vo.setExpireMinutes(event.getExpireMinutes());
+            vo.setStatus(event.getStatus());
+            vo.setExtMeta(event.getExtMeta());
+            vo.setCreateTime(event.getCreateTime());
+            vo.setExpireTime(event.getExpireTime());
+            vo.setSettleTime(event.getSettleTime());
+            
+            // 解析扩展信息
+            Map<String, Object> metaMap = parseExtMeta(event.getExtMeta());
+            vo.setDescription(metaMap.get("description") != null ? String.valueOf(metaMap.get("description")) : null);
+            vo.setMediaUrls(extractMediaUrls(metaMap));
+            
+            // 提取位置信息
+            if (metaMap.get("longitude") != null) {
+                vo.setLongitude(Double.valueOf(String.valueOf(metaMap.get("longitude"))));
+            }
+            if (metaMap.get("latitude") != null) {
+                vo.setLatitude(Double.valueOf(String.valueOf(metaMap.get("latitude"))));
+            }
+            if (metaMap.get("locationName") != null) {
+                vo.setLocationName(String.valueOf(metaMap.get("locationName")));
+            }
+            
+            // 设置发起者信息
+            vo.setOwnerId(event.getUserId());
+            vo.setIsOwner(event.getUserId().equals(userId));
+            SysUser owner = userMap.get(event.getUserId());
+            if (owner != null) {
+                vo.setOwnerNickname(owner.getNickname());
+                vo.setOwnerAvatar(owner.getAvatar());
+            }
+            
+            // 解析参与者列表
+            List<EventParticipantVO> participantVOList = new ArrayList<>();
+            if (event.getParticipants() != null && !event.getParticipants().isEmpty()) {
+                try {
+                    List<Map> participantList = JSON.parseArray(event.getParticipants(), Map.class);
+                    for (Map p : participantList) {
+                        EventParticipantVO pvo = new EventParticipantVO();
+                        Object uid = p.get("userId");
+                        if (uid != null) {
+                            Long participantId = Long.valueOf(String.valueOf(uid));
+                            pvo.setUserId(participantId);
+                            SysUser pUser = userMap.get(participantId);
+                            if (pUser != null) {
+                                pvo.setNickname(pUser.getNickname());
+                                pvo.setAvatar(pUser.getAvatar());
+                            } else if (p.get("nickname") != null) {
+                                pvo.setNickname(String.valueOf(p.get("nickname")));
+                            }
+                            pvo.setOwner(Boolean.TRUE.equals(p.get("owner")));
+                            pvo.setStatus(p.get("status") != null ? String.valueOf(p.get("status")) : null);
+                            participantVOList.add(pvo);
+                        }
+                    }
+                } catch (Exception e) {
+                    // 忽略解析错误
+                }
+            }
+            vo.setParticipantList(participantVOList);
+            
+            voList.add(vo);
+        }
+        
+        return voList;
     }
 }

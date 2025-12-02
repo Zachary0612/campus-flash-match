@@ -1,9 +1,11 @@
 package com.campus.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import com.campus.interceptor.CampusIpInterceptor;
 
@@ -15,6 +17,19 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Autowired
     private CampusIpInterceptor campusIpInterceptor;
+
+    @Value("${campus.media.storage-path:./uploads/}")
+    private String storagePath;
+
+    /**
+     * 配置静态资源映射 - 用于访问上传的媒体文件
+     */
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        // 将 /media/** 请求映射到本地存储目录
+        registry.addResourceHandler("/media/**")
+                .addResourceLocations("file:" + storagePath);
+    }
 
     /**
      * 配置CORS跨域访问

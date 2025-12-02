@@ -29,12 +29,14 @@ export const useWebSocketStore = defineStore('websocket', () => {
     try {
       // 构建WebSocket URL，将userId放在路径中，并携带token
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      const host = window.location.hostname
-      const port = import.meta.env.DEV ? '8080' : window.location.port
+      // 使用 window.location.host 自动包含主机名和端口
+      // 这样在开发环境可以通过 Vite 代理转发 (port 3000 -> 8080)
+      // 在生产环境则直接连接当前服务
+      const host = window.location.host
       const token = localStorage.getItem('token')
       
       // 确保路径格式正确：/ws/{userId}?token={token}
-      const wsUrl = `${protocol}//${host}:${port}/ws/${userStore.userId}${token ? `?token=${encodeURIComponent(token)}` : ''}`
+      const wsUrl = `${protocol}//${host}/ws/${userStore.userId}${token ? `?token=${encodeURIComponent(token)}` : ''}`
       
       console.log('尝试连接WebSocket:', wsUrl)
       ws.value = new WebSocket(wsUrl)

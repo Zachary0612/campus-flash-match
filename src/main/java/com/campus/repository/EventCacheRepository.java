@@ -56,10 +56,14 @@ public class EventCacheRepository {
      * 获取用户位置
      */
     public Point getUserLocation(Long userId) {
-        List<Point> positions = redisUtil.geoPosition("user:location:", userId.toString());
+        // 使用常量，key为 "user:location:"，member为userId
+        String key = "user:location:";
+        List<Point> positions = redisUtil.geoPosition(key, userId.toString());
         if (positions == null || positions.isEmpty() || positions.get(0) == null) {
+            System.out.println("用户位置未找到，userId: " + userId + ", key: " + key);
             return null;
         }
+        System.out.println("用户位置获取成功，userId: " + userId + ", 位置: " + positions.get(0));
         return positions.get(0);
     }
 
@@ -70,7 +74,11 @@ public class EventCacheRepository {
             String eventType, double longitude, double latitude, double radius) {
         String eventLocationKey = EventConstant.REDIS_KEY_EVENT_LOCATION + eventType;
         
+        System.out.println("查询附近事件 - eventType: " + eventType + ", key: " + eventLocationKey 
+                + ", 用户位置: (" + longitude + ", " + latitude + "), 半径: " + radius + "米");
+        
         if (!redisUtil.hasKey(eventLocationKey)) {
+            System.out.println("事件位置key不存在: " + eventLocationKey);
             return null;
         }
         
@@ -80,13 +88,15 @@ public class EventCacheRepository {
         }
         
         try {
-            return redisUtil.geoRadius(
+            GeoResults<RedisGeoCommands.GeoLocation<Object>> results = redisUtil.geoRadius(
                     eventLocationKey,
                     longitude,
                     latitude,
                     radius,
                     RedisGeoCommands.DistanceUnit.METERS
             );
+            System.out.println("GEO查询结果数量: " + (results != null ? results.getContent().size() : 0));
+            return results;
         } catch (Exception e) {
             System.err.println("执行geoRadius操作时发生异常: " + e.getMessage());
             return null;
@@ -163,56 +173,94 @@ public class EventCacheRepository {
         
         final JoinEventResult result = new JoinEventResult();
         
-        redisUtil.execute(new SessionCallback<Object>() {
-            @Override
-            public Object execute(RedisOperations operations) {
-                operations.watch(eventInfoKey);
-                operations.watch(eventParticipantsKey);
+        try {
+            redisUtil.execute(new SessionCallback<Object>() {
+                @Override
+                public Object execute(RedisOperations operations) {
+                    try {
+                        operations.watch(eventInfoKey);
+                        operations.watch(eventParticipantsKey);
 
-                if (!operations.hasKey(eventInfoKey)) {
-                    result.setSuccess(false);
-                    result.setFailureReason("EVENT_NOT_FOUND");
+                        if (!operations.hasKey(eventInfoKey)) {
+                            result.setSuccess(false);
+                            result.setFailureReason("EVENT_NOT_FOUND");
+                            return null;
+                        }
+
+                        Map<Object, Object> eventInfoMap = operations.opsForHash().entries(eventInfoKey);
+                        if (eventInfoMap == null || eventInfoMap.isEmpty()) {
+                            result.setSuccess(false);
+                            result.setFailureReason("EVENT_NOT_FOUND");
+                            return null;
+                        }
+                        
+                        String eventType = String.valueOf(eventInfoMap.get("event_type"));
+                        Integer currentNum = Integer.valueOf(String.valueOf(eventInfoMap.get("current_num")));
+                        Integer targetNum = Integer.valueOf(String.valueOf(eventInfoMap.get("target_num")));
+
+                        // 调试：打印参与者集合内容
+                        Set<Object> currentParticipants = operations.opsForSet().members(eventParticipantsKey);
+                        System.out.println("joinEventTransaction Debug: eventId=" + eventId + ", userId=" + userId 
+                                + ", participantsKey=" + eventParticipantsKey 
+                                + ", currentParticipants=" + currentParticipants);
+                        
+                        Boolean isMember = operations.opsForSet().isMember(eventParticipantsKey, userId.toString());
+                        System.out.println("joinEventTransaction Debug: isMember check for userId=" + userId + " result=" + isMember);
+                        
+                        if (Boolean.TRUE.equals(isMember)) {
+                            result.setSuccess(false);
+                            result.setFailureReason("ALREADY_JOINED");
+                            return null;
+                        }
+
+                        if (currentNum >= targetNum) {
+                            result.setSuccess(false);
+                            result.setFailureReason("EVENT_FULL");
+                            return null;
+                        }
+
+                        if (EventConstant.EVENT_TYPE_BEACON.equals(eventType) && currentNum >= 1) {
+                            result.setSuccess(false);
+                            result.setFailureReason("BEACON_FULL");
+                            return null;
+                        }
+
+                        operations.multi();
+                        operations.opsForHash().increment(eventInfoKey, "current_num", 1);
+                        operations.opsForSet().add(eventParticipantsKey, userId.toString());
+
+                        List<Object> execResult = operations.exec();
+                        boolean success = (execResult != null && !execResult.isEmpty());
+                        result.setSuccess(success);
+                        
+                        if (success) {
+                            try {
+                                result.setCurrentNum(((Number) execResult.get(0)).intValue());
+                                result.setTargetNum(targetNum);
+                            } catch (Exception e) {
+                                // 如果无法获取返回值，重新查询
+                                Map<Object, Object> updatedInfo = operations.opsForHash().entries(eventInfoKey);
+                                result.setCurrentNum(Integer.valueOf(String.valueOf(updatedInfo.get("current_num"))));
+                                result.setTargetNum(Integer.valueOf(String.valueOf(updatedInfo.get("target_num"))));
+                            }
+                        } else {
+                            result.setFailureReason("TRANSACTION_FAILED");
+                        }
+                    } catch (Exception e) {
+                        System.err.println("joinEventTransaction内部错误: eventId=" + eventId + ", userId=" + userId + ", error=" + e.getMessage());
+                        e.printStackTrace();
+                        result.setSuccess(false);
+                        result.setFailureReason("INTERNAL_ERROR");
+                    }
                     return null;
                 }
-
-                Map<Object, Object> eventInfoMap = operations.opsForHash().entries(eventInfoKey);
-                String eventType = String.valueOf(eventInfoMap.get("event_type"));
-                Integer currentNum = Integer.valueOf(String.valueOf(eventInfoMap.get("current_num")));
-                Integer targetNum = Integer.valueOf(String.valueOf(eventInfoMap.get("target_num")));
-
-                if (operations.opsForSet().isMember(eventParticipantsKey, userId.toString())) {
-                    result.setSuccess(false);
-                    result.setFailureReason("ALREADY_JOINED");
-                    return null;
-                }
-
-                if (currentNum >= targetNum) {
-                    result.setSuccess(false);
-                    result.setFailureReason("EVENT_FULL");
-                    return null;
-                }
-
-                if (EventConstant.EVENT_TYPE_BEACON.equals(eventType) && currentNum >= 1) {
-                    result.setSuccess(false);
-                    result.setFailureReason("BEACON_FULL");
-                    return null;
-                }
-
-                operations.multi();
-                operations.opsForHash().increment(eventInfoKey, "current_num", 1);
-                operations.opsForSet().add(eventParticipantsKey, userId.toString());
-
-                List<Object> execResult = operations.exec();
-                boolean success = (execResult != null && !execResult.isEmpty());
-                result.setSuccess(success);
-                
-                if (success) {
-                    result.setCurrentNum(((Long) execResult.get(0)).intValue());
-                    result.setTargetNum(targetNum);
-                }
-                return null;
-            }
-        });
+            });
+        } catch (Exception e) {
+            System.err.println("joinEventTransaction执行失败: eventId=" + eventId + ", userId=" + userId + ", error=" + e.getMessage());
+            e.printStackTrace();
+            result.setSuccess(false);
+            result.setFailureReason("REDIS_ERROR");
+        }
         
         return result;
     }

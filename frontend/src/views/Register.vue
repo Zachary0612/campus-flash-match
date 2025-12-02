@@ -1,18 +1,26 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-    <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
-      <div class="text-center mb-8">
-        <h1 class="text-3xl font-bold text-gray-800 mb-2">用户注册</h1>
-        <p class="text-gray-500">请使用校园网络注册</p>
+  <div class="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+    <!-- Background decorations -->
+    <div class="absolute top-0 left-0 w-full h-full overflow-hidden -z-10">
+      <div class="absolute bottom-[-10%] left-[-10%] w-96 h-96 bg-success/30 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
+      <div class="absolute top-[10%] right-[-10%] w-96 h-96 bg-blue-300 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
+      <div class="absolute top-[-20%] left-[40%] w-96 h-96 bg-indigo-300 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-4000"></div>
+    </div>
+
+    <div class="glass p-8 rounded-3xl shadow-2xl w-full max-w-md animate-fade-in backdrop-blur-xl bg-white/40 border-white/20 my-8">
+      <div class="text-center mb-6 animate-slide-up" style="animation-delay: 0.1s">
+        <h1 class="text-3xl font-extrabold text-gray-800 mb-2 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-success to-teal-600">用户注册</h1>
+        <p class="text-gray-600 font-medium">请使用校园网络注册</p>
       </div>
       
-      <el-form :model="registerForm" :rules="rules" ref="registerFormRef" label-width="0">
+      <el-form :model="registerForm" :rules="rules" ref="registerFormRef" label-width="0" class="animate-slide-up" style="animation-delay: 0.2s">
         <el-form-item prop="studentId">
           <el-input
             v-model="registerForm.studentId"
             placeholder="请输入学号"
             size="large"
             :prefix-icon="User"
+            class="custom-input"
           />
         </el-form-item>
         
@@ -22,6 +30,7 @@
             placeholder="请输入昵称"
             size="large"
             :prefix-icon="Avatar"
+            class="custom-input"
           />
         </el-form-item>
         
@@ -31,6 +40,7 @@
             placeholder="请输入邮箱"
             size="large"
             :prefix-icon="Message"
+            class="custom-input"
           />
         </el-form-item>
 
@@ -42,6 +52,7 @@
             size="large"
             :prefix-icon="Lock"
             show-password
+            class="custom-input"
           />
         </el-form-item>
         
@@ -54,21 +65,23 @@
             :prefix-icon="Lock"
             show-password
             @keyup.enter="handleRegister"
+            class="custom-input"
           />
         </el-form-item>
 
         <el-form-item prop="verifyCode">
-          <div class="flex gap-3">
+          <div class="flex gap-3 w-full">
             <el-input
               v-model="registerForm.verifyCode"
               placeholder="请输入邮箱验证码"
               size="large"
               maxlength="6"
+              class="custom-input flex-1"
             />
             <el-button
               type="primary"
               size="large"
-              class="shrink-0"
+              class="shrink-0 !rounded-xl !h-[40px] mt-[1px] shadow-md hover:shadow-primary/40"
               :loading="sendingCode"
               :disabled="codeCountdown > 0"
               @click="handleSendCode"
@@ -83,7 +96,7 @@
           <el-button
             type="primary"
             size="large"
-            class="w-full"
+            class="w-full !rounded-xl !h-12 !text-lg !font-semibold shadow-lg hover:shadow-success/50 transition-all duration-300 hover:-translate-y-0.5 !bg-success !border-success"
             :loading="loading"
             @click="handleRegister"
           >
@@ -92,9 +105,9 @@
         </el-form-item>
       </el-form>
       
-      <div class="text-center mt-4">
+      <div class="text-center mt-4 animate-slide-up" style="animation-delay: 0.3s">
         <span class="text-gray-600">已有账号？</span>
-        <router-link to="/login" class="text-blue-500 hover:text-blue-600 ml-2">
+        <router-link to="/login" class="text-success font-bold hover:text-teal-600 ml-2 transition-colors">
           立即登录
         </router-link>
       </div>
@@ -230,4 +243,49 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.custom-input :deep(.el-input__wrapper) {
+  border-radius: 12px;
+  padding: 8px 15px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background-color: rgba(255, 255, 255, 0.8);
+  transition: all 0.3s;
+}
+
+.custom-input :deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 4px 15px rgba(103, 194, 58, 0.2) !important;
+  border-color: var(--el-color-success);
+  background-color: #fff;
+}
+
+.custom-input :deep(.el-input__inner) {
+  height: 32px;
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
 </style>

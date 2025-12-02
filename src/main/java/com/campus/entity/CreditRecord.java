@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
+import java.time.LocalDateTime;
+
 /**
  * 信用分变更记录表实体（对应credit_record）
  */
@@ -35,10 +37,10 @@ public class CreditRecord {
     /**
      * 分数变更值（正数为加，负数为减）
      */
-    private Integer scoreChange;
+    private Integer changeScore;
     
     /**
-     * 创建时间（毫秒时间戳）
+     * 创建时间
      */
-    private Long createTime;
+    private LocalDateTime createTime;
 }

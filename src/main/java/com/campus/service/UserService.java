@@ -2,6 +2,7 @@ package com.campus.service;
 
 import java.util.List;
 import com.campus.entity.CampusPoint;
+import com.campus.entity.SysUser;
 import com.campus.dto.response.LoginResponseDTO;
 import com.campus.dto.response.CreditInfoResponseDTO;
 
@@ -78,4 +79,11 @@ public interface UserService {
      * @return 校园点位列表
      */
     List<CampusPoint> getCampusPoints();
+    
+    /**
+     * 根据ID获取用户信息
+     * @param userId 用户ID
+     * @return 用户信息
+     */
+    SysUser getUserById(Long userId);
 }

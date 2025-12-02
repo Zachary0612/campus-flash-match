@@ -1,25 +1,33 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-    <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
-      <div class="text-center mb-8">
-        <h1 class="text-3xl font-bold text-gray-800 mb-2">校园闪配</h1>
-        <p class="text-gray-500">校园拼单约伴平台</p>
+  <div class="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+    <!-- Background decorations -->
+    <div class="absolute top-0 left-0 w-full h-full overflow-hidden -z-10">
+      <div class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-primary/30 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
+      <div class="absolute top-[-10%] right-[-10%] w-96 h-96 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
+      <div class="absolute bottom-[-20%] left-[20%] w-96 h-96 bg-pink-300 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-4000"></div>
+    </div>
+
+    <div class="glass p-8 rounded-3xl shadow-2xl w-full max-w-md animate-fade-in backdrop-blur-xl bg-white/40 border-white/20">
+      <div class="text-center mb-8 animate-slide-up" style="animation-delay: 0.1s">
+        <h1 class="text-4xl font-extrabold text-gray-800 mb-2 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600">校园闪配</h1>
+        <p class="text-gray-600 font-medium">校园拼单约伴平台</p>
       </div>
       
-      <div class="flex justify-center mb-4">
-        <el-radio-group v-model="loginMode" size="large">
+      <div class="flex justify-center mb-8 animate-slide-up" style="animation-delay: 0.2s">
+        <el-radio-group v-model="loginMode" size="large" class="shadow-sm">
           <el-radio-button label="studentId">学号登录</el-radio-button>
           <el-radio-button label="email">邮箱登录</el-radio-button>
         </el-radio-group>
       </div>
 
-      <el-form :model="loginForm" :rules="rules" ref="loginFormRef" label-width="0">
+      <el-form :model="loginForm" :rules="rules" ref="loginFormRef" label-width="0" class="animate-slide-up" style="animation-delay: 0.3s">
         <el-form-item prop="account">
           <el-input
             v-model="loginForm.account"
             :placeholder="accountPlaceholder"
             size="large"
             :prefix-icon="User"
+            class="custom-input"
           />
         </el-form-item>
         
@@ -32,6 +40,7 @@
             :prefix-icon="Lock"
             show-password
             @keyup.enter="handleLogin"
+            class="custom-input"
           />
         </el-form-item>
         
@@ -39,7 +48,7 @@
           <el-button
             type="primary"
             size="large"
-            class="w-full"
+            class="w-full !rounded-xl !h-12 !text-lg !font-semibold shadow-lg hover:shadow-primary/50 transition-all duration-300 hover:-translate-y-0.5"
             :loading="loading"
             @click="handleLogin"
           >
@@ -48,9 +57,9 @@
         </el-form-item>
       </el-form>
       
-      <div class="text-center mt-4">
+      <div class="text-center mt-6 animate-slide-up" style="animation-delay: 0.4s">
         <span class="text-gray-600">还没有账号？</span>
-        <router-link to="/register" class="text-blue-500 hover:text-blue-600 ml-2">
+        <router-link to="/register" class="text-primary font-bold hover:text-purple-600 ml-2 transition-colors">
           立即注册
         </router-link>
       </div>
@@ -134,4 +143,49 @@ const handleLogin = async () => {
 </script>
 
 <style scoped>
+.custom-input :deep(.el-input__wrapper) {
+  border-radius: 12px;
+  padding: 8px 15px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background-color: rgba(255, 255, 255, 0.8);
+  transition: all 0.3s;
+}
+
+.custom-input :deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 4px 15px rgba(64, 158, 255, 0.2) !important;
+  border-color: var(--el-color-primary);
+  background-color: #fff;
+}
+
+.custom-input :deep(.el-input__inner) {
+  height: 32px;
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
 </style>

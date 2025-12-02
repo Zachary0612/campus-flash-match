@@ -1,35 +1,47 @@
 <template>
-  <div class="layout-container">
+  <div class="layout-container min-h-screen flex flex-col">
     <!-- 顶部导航栏 -->
-    <el-header class="header">
-      <div class="header-content">
-        <div class="logo">
-          <el-icon :size="24" class="mr-2"><Location /></el-icon>
-          <span class="text-xl font-bold">校园闪配</span>
+    <header class="header glass fixed w-full top-0 z-50 px-6 h-16 flex items-center justify-between backdrop-blur-md bg-white/70 border-b border-white/40 shadow-sm transition-all duration-300">
+      <div class="header-content w-full max-w-[1440px] mx-auto flex justify-between items-center">
+        <div class="logo flex items-center text-primary cursor-pointer" @click="router.push('/home')">
+          <div class="w-8 h-8 bg-gradient-to-tr from-primary to-blue-300 rounded-lg flex items-center justify-center shadow-lg mr-3">
+             <el-icon :size="20" class="text-white"><Location /></el-icon>
+          </div>
+          <span class="text-xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600">校园闪配</span>
         </div>
         
-        <div class="user-info">
-          <el-badge :value="creditScore" :max="99" class="mr-4">
-            <el-icon :size="20"><Medal /></el-icon>
+        <div class="user-info flex items-center gap-4">
+          <!-- 通知图标 -->
+          <el-badge :value="unreadCount" :hidden="unreadCount === 0" :max="99">
+            <el-button circle class="!bg-white/50 !border-white/60 hover:!bg-white/80" @click="router.push('/notifications')">
+              <el-icon :size="18" class="text-gray-600"><Bell /></el-icon>
+            </el-button>
           </el-badge>
           
-          <el-dropdown @command="handleCommand">
-            <span class="user-dropdown">
-              <el-avatar :size="32" class="mr-2">{{ nickname.charAt(0) }}</el-avatar>
-              <span>{{ nickname }}</span>
-              <el-icon class="ml-1"><ArrowDown /></el-icon>
+          <el-tooltip content="当前信用分" placement="bottom">
+            <div class="flex items-center bg-white/50 px-3 py-1.5 rounded-full border border-white/60 shadow-sm hover:shadow-md transition-all cursor-help">
+               <el-icon :size="18" class="text-warning mr-1"><Medal /></el-icon>
+               <span class="font-bold text-gray-700">{{ creditScore }}</span>
+            </div>
+          </el-tooltip>
+          
+          <el-dropdown @command="handleCommand" trigger="click">
+            <span class="user-dropdown flex items-center cursor-pointer hover:bg-white/50 px-2 py-1 rounded-lg transition-colors">
+              <el-avatar :size="36" class="mr-2 border-2 border-white shadow-sm bg-gradient-to-br from-blue-100 to-purple-100 text-primary font-bold">{{ nickname.charAt(0) }}</el-avatar>
+              <span class="font-medium text-gray-700">{{ nickname }}</span>
+              <el-icon class="ml-1 text-gray-400"><ArrowDown /></el-icon>
             </span>
             <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="profile">
+              <el-dropdown-menu class="!rounded-xl !border-none !shadow-xl !p-2">
+                <el-dropdown-item command="profile" class="!rounded-lg !mb-1">
                   <el-icon><User /></el-icon>
                   个人中心
                 </el-dropdown-item>
-                <el-dropdown-item command="credit">
+                <el-dropdown-item command="credit" class="!rounded-lg !mb-1">
                   <el-icon><Medal /></el-icon>
                   信用分记录
                 </el-dropdown-item>
-                <el-dropdown-item divided command="logout">
+                <el-dropdown-item divided command="logout" class="!rounded-lg !text-red-500 hover:!bg-red-50">
                   <el-icon><SwitchButton /></el-icon>
                   退出登录
                 </el-dropdown-item>
@@ -38,49 +50,78 @@
           </el-dropdown>
         </div>
       </div>
-    </el-header>
+    </header>
     
     <!-- 主体内容 -->
-    <el-container class="main-container">
+    <div class="main-container flex flex-1 pt-16 max-w-[1440px] mx-auto w-full">
       <!-- 侧边栏 -->
-      <el-aside width="200px" class="sidebar">
-        <el-menu
-          :default-active="activeMenu"
-          router
-          class="sidebar-menu"
-        >
-          <el-menu-item index="/home">
-            <el-icon><HomeFilled /></el-icon>
-            <span>首页</span>
-          </el-menu-item>
-          <el-menu-item index="/events">
-            <el-icon><List /></el-icon>
-            <span>我的事件</span>
-          </el-menu-item>
-          <el-menu-item index="/beacon">
-            <el-icon><LocationInformation /></el-icon>
-            <span>占位信标</span>
-          </el-menu-item>
-          <el-menu-item index="/credit">
-            <el-icon><TrophyBase /></el-icon>
-            <span>信用记录</span>
-          </el-menu-item>
-        </el-menu>
-      </el-aside>
+      <aside class="sidebar w-64 fixed h-[calc(100vh-64px)] hidden md:block z-40">
+        <div class="h-full p-4">
+          <div class="glass h-full rounded-2xl bg-white/40 border-white/30 shadow-lg backdrop-blur-md overflow-hidden flex flex-col">
+             <el-menu
+              :default-active="activeMenu"
+              router
+              class="sidebar-menu !bg-transparent !border-none flex-1 p-2"
+            >
+              <el-menu-item index="/home" class="!rounded-xl !mb-2 !h-12 !font-medium !text-gray-600 hover:!text-primary hover:!bg-white/60">
+                <template #title>
+                  <el-icon class="text-lg"><HomeFilled /></el-icon>
+                  <span class="text-base">首页</span>
+                </template>
+              </el-menu-item>
+              <el-menu-item index="/events" class="!rounded-xl !mb-2 !h-12 !font-medium !text-gray-600 hover:!text-primary hover:!bg-white/60">
+                <template #title>
+                  <el-icon class="text-lg"><List /></el-icon>
+                  <span class="text-base">我的事件</span>
+                </template>
+              </el-menu-item>
+              <el-menu-item index="/beacon" class="!rounded-xl !mb-2 !h-12 !font-medium !text-gray-600 hover:!text-primary hover:!bg-white/60">
+                 <template #title>
+                   <el-icon class="text-lg"><LocationInformation /></el-icon>
+                   <span class="text-base">占位信标</span>
+                 </template>
+              </el-menu-item>
+              <el-menu-item index="/credit" class="!rounded-xl !mb-2 !h-12 !font-medium !text-gray-600 hover:!text-primary hover:!bg-white/60">
+                <template #title>
+                  <el-icon class="text-lg"><TrophyBase /></el-icon>
+                  <span class="text-base">信用记录</span>
+                </template>
+              </el-menu-item>
+              <el-menu-item index="/favorites" class="!rounded-xl !mb-2 !h-12 !font-medium !text-gray-600 hover:!text-primary hover:!bg-white/60">
+                <template #title>
+                  <el-icon class="text-lg"><Star /></el-icon>
+                  <span class="text-base">我的收藏</span>
+                </template>
+              </el-menu-item>
+              <el-menu-item index="/notifications" class="!rounded-xl !mb-2 !h-12 !font-medium !text-gray-600 hover:!text-primary hover:!bg-white/60">
+                <template #title>
+                  <el-icon class="text-lg"><Bell /></el-icon>
+                  <span class="text-base">消息通知</span>
+                </template>
+              </el-menu-item>
+            </el-menu>
+            
+            <div class="p-4 text-center text-xs text-gray-400/80 font-medium">
+              © 2025 校园闪配
+            </div>
+          </div>
+        </div>
+      </aside>
       
       <!-- 内容区域 -->
-      <el-main class="content">
+      <main class="content flex-1 md:ml-64 p-6 overflow-x-hidden">
         <slot></slot>
-      </el-main>
-    </el-container>
+      </main>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useWebSocketStore } from '@/stores/websocket'
+import { getUnreadCount } from '@/api/notification'
 import {
   Location,
   Medal,
@@ -90,7 +131,9 @@ import {
   HomeFilled,
   List,
   LocationInformation,
-  TrophyBase
+  TrophyBase,
+  Star,
+  Bell
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -101,6 +144,25 @@ const wsStore = useWebSocketStore()
 const activeMenu = computed(() => route.path)
 const nickname = computed(() => userStore.nickname)
 const creditScore = computed(() => userStore.creditScore)
+const unreadCount = ref(0)
+
+// 加载未读消息数
+const loadUnreadCount = async () => {
+  try {
+    const res = await getUnreadCount()
+    if (res.code === 200) {
+      unreadCount.value = res.data || 0
+    }
+  } catch (error) {
+    console.error('获取未读消息数失败:', error)
+  }
+}
+
+onMounted(() => {
+  loadUnreadCount()
+  // 每分钟刷新一次未读数
+  setInterval(loadUnreadCount, 60000)
+})
 
 const handleCommand = (command) => {
   switch (command) {
@@ -119,70 +181,22 @@ const handleCommand = (command) => {
 </script>
 
 <style scoped>
-.layout-container {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
+:deep(.el-menu-item.is-active) {
+  background: linear-gradient(90deg, rgba(64, 158, 255, 0.1) 0%, rgba(64, 158, 255, 0.2) 100%) !important;
+  color: var(--el-color-primary) !important;
+  font-weight: 600 !important;
+  box-shadow: 0 2px 6px rgba(64, 158, 255, 0.1);
 }
 
-.header {
-  background: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  padding: 0 24px;
-  display: flex;
-  align-items: center;
+:deep(.el-menu-item:hover) {
+  background-color: rgba(255, 255, 255, 0.6) !important;
 }
 
-.header-content {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+:deep(.el-menu-item .el-icon) {
+  transition: transform 0.3s;
 }
 
-.logo {
-  display: flex;
-  align-items: center;
-  color: #409EFF;
-  font-weight: bold;
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-}
-
-.user-dropdown {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  padding: 8px 12px;
-  border-radius: 8px;
-  transition: background-color 0.3s;
-}
-
-.user-dropdown:hover {
-  background-color: #f5f7fa;
-}
-
-.main-container {
-  flex: 1;
-  overflow: hidden;
-}
-
-.sidebar {
-  background: white;
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
-}
-
-.sidebar-menu {
-  border-right: none;
-  height: 100%;
-}
-
-.content {
-  background: #f5f7fa;
-  overflow-y: auto;
-  padding: 24px;
+:deep(.el-menu-item:hover .el-icon) {
+  transform: scale(1.1);
 }
 </style>

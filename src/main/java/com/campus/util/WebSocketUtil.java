@@ -62,7 +62,6 @@ public class WebSocketUtil extends TextWebSocketHandler {
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         try {
             String payload = message.getPayload();
-            logger.info("收到WebSocket消息: " + payload);
             
             // 解析消息内容
             JSONObject json = JSONObject.parseObject(payload);
@@ -75,9 +74,10 @@ public class WebSocketUtil extends TextWebSocketHandler {
                     String eventId = json.getString("eventId");
                     Long userId = getUserIdFromSession(session);
                     subscribeEvent(userId, eventId);
+                    logger.info("用户 [" + userId + "] 订阅事件: " + eventId);
                     break;
                 case "ping":
-                    // 心跳包响应
+                    // 心跳包响应（不记录日志，避免刷屏）
                     session.sendMessage(new TextMessage(createMessage("pong", null)));
                     break;
                 default:

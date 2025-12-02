@@ -1,154 +1,182 @@
 <template>
   <Layout>
-    <div class="events-page">
-      <el-card shadow="hover">
-        <template #header>
-          <div class="flex items-center justify-between">
-            <el-tabs v-model="activeTab" @tab-change="handleTabChange" class="flex-1">
-              <el-tab-pane label="进行中 / 历史" name="history" />
-              <el-tab-pane label="已完成事件" name="completed" />
-            </el-tabs>
-            <el-button size="small" @click="handleRefresh" :loading="activeTab === 'history' ? loading : completedLoading">
-              <el-icon><Refresh /></el-icon>
-            </el-button>
+    <div class="events-page relative z-10">
+      <div class="glass rounded-2xl p-6 shadow-lg backdrop-blur-lg bg-white/30 border-white/40 min-h-[80vh] animate-slide-up" style="animation-delay: 0.1s">
+        <div class="flex items-center justify-between mb-6 border-b border-white/20 pb-4">
+          <div class="flex-1">
+             <div class="inline-flex bg-gray-100/50 p-1 rounded-xl">
+                <button 
+                  v-for="tab in [{name: 'history', label: '进行中 / 历史'}, {name: 'completed', label: '已完成事件'}]" 
+                  :key="tab.name"
+                  @click="activeTab = tab.name; handleTabChange(tab.name)"
+                  class="px-6 py-2 rounded-lg text-sm font-medium transition-all duration-300"
+                  :class="activeTab === tab.name ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+                >
+                  {{ tab.label }}
+                </button>
+             </div>
           </div>
-        </template>
+          <el-button circle @click="handleRefresh" :loading="activeTab === 'history' ? loading : completedLoading" class="!bg-white/50 !border-white/50 hover:!bg-white/80">
+            <el-icon><Refresh /></el-icon>
+          </el-button>
+        </div>
 
-        <div v-if="activeTab === 'history'">
-          <div v-if="loading" class="text-center py-8">
-            <el-icon class="is-loading" :size="32"><Loading /></el-icon>
+        <div v-if="activeTab === 'history'" class="animate-fade-in">
+          <div v-if="loading" class="text-center py-16">
+            <el-icon class="is-loading text-primary" :size="40"><Loading /></el-icon>
           </div>
           
-          <div v-else-if="historyList.length === 0" class="text-center py-8 text-gray-400">
-            <el-icon :size="48"><DocumentDelete /></el-icon>
-            <p class="mt-2">暂无事件历史</p>
+          <div v-else-if="historyList.length === 0" class="text-center py-16 text-gray-500">
+            <div class="bg-gray-100/50 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4">
+              <el-icon :size="40" class="text-gray-400"><DocumentDelete /></el-icon>
+            </div>
+            <p class="text-lg font-medium">暂无事件历史</p>
           </div>
           
           <template v-else>
-            <el-table :data="historyList" stripe>
-              <el-table-column label="事件类型" width="100">
-                <template #default="{ row }">
-                  <el-tag :type="getEventTypeTag(row.eventType)" size="small">
-                    {{ getEventTypeName(row.eventType) }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-              
-              <el-table-column prop="title" label="标题" min-width="200" />
-              
-              <el-table-column label="人数" width="100">
-                <template #default="{ row }">
-                  {{ row.currentNum }}/{{ row.targetNum }}
-                </template>
-              </el-table-column>
-              
-              <el-table-column label="状态" width="100">
-                <template #default="{ row }">
-                  <el-tag :type="getStatusTag(row.status)" size="small">
-                    {{ getStatusName(row.status) }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-              
-              <el-table-column label="创建时间" width="160">
-                <template #default="{ row }">
-                  {{ formatTime(row.createTime) }}
-                </template>
-              </el-table-column>
-              
-              <el-table-column label="结算时间" width="160">
-                <template #default="{ row }">
-                  {{ row.settleTime ? formatTime(row.settleTime) : '-' }}
-                </template>
-              </el-table-column>
-              
-              <el-table-column label="操作" width="120" fixed="right">
-                <template #default="{ row }">
-                  <el-button
-                    v-if="row.status === 'active'"
-                    type="danger"
-                    size="small"
-                    @click="handleQuit(row.eventId)"
-                  >
-                    退出
-                  </el-button>
-                </template>
-              </el-table-column>
-            </el-table>
+            <div class="overflow-hidden rounded-xl border border-white/30">
+              <el-table :data="historyList" style="width: 100%" :header-cell-style="{background: 'rgba(255,255,255,0.5)', color: '#606266'}" :row-class-name="'glass-row'">
+                <el-table-column label="事件类型" width="100">
+                  <template #default="{ row }">
+                    <el-tag :type="getEventTypeTag(row.eventType)" size="small" effect="dark" class="!rounded-md">
+                      {{ getEventTypeName(row.eventType) }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                
+                <el-table-column prop="title" label="标题" min-width="200">
+                   <template #default="{ row }">
+                     <span class="font-medium text-gray-800">{{ row.title }}</span>
+                   </template>
+                </el-table-column>
+                
+                <el-table-column label="人数" width="100">
+                  <template #default="{ row }">
+                    <div class="flex items-center text-gray-600">
+                      <el-icon class="mr-1"><User /></el-icon>
+                      {{ row.currentNum }}/{{ row.targetNum }}
+                    </div>
+                  </template>
+                </el-table-column>
+                
+                <el-table-column label="状态" width="100">
+                  <template #default="{ row }">
+                    <el-tag :type="getStatusTag(row.status)" size="small" effect="plain" class="!rounded-full">
+                      {{ getStatusName(row.status) }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                
+                <el-table-column label="创建时间" width="180">
+                  <template #default="{ row }">
+                    <div class="text-gray-500 text-sm">{{ formatTime(row.createTime) }}</div>
+                  </template>
+                </el-table-column>
+                
+                <el-table-column label="结算时间" width="180">
+                  <template #default="{ row }">
+                    <div class="text-gray-500 text-sm">{{ row.settleTime ? formatTime(row.settleTime) : '-' }}</div>
+                  </template>
+                </el-table-column>
+                
+                <el-table-column label="操作" width="120" fixed="right">
+                  <template #default="{ row }">
+                    <el-button
+                      v-if="row.status === 'active'"
+                      type="danger"
+                      size="small"
+                      plain
+                      class="!rounded-lg"
+                      @click="handleQuit(row.eventId)"
+                    >
+                      退出
+                    </el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
             
-            <div class="mt-4 flex justify-center">
+            <div class="mt-6 flex justify-center">
               <el-pagination
                 v-model:current-page="pageNum"
                 :page-size="pageSize"
                 :total="total"
                 layout="prev, pager, next"
+                background
                 @current-change="loadHistory"
               />
             </div>
           </template>
         </div>
 
-        <div v-else>
-          <div v-if="completedLoading" class="text-center py-8">
-            <el-icon class="is-loading" :size="32"><Loading /></el-icon>
+        <div v-else class="animate-fade-in">
+          <div v-if="completedLoading" class="text-center py-16">
+            <el-icon class="is-loading text-primary" :size="40"><Loading /></el-icon>
           </div>
 
-          <div v-else-if="completedList.length === 0" class="text-center py-8 text-gray-400">
-            <el-icon :size="48"><DocumentDelete /></el-icon>
-            <p class="mt-2">暂无已完成事件</p>
+          <div v-else-if="completedList.length === 0" class="text-center py-16 text-gray-500">
+            <div class="bg-gray-100/50 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4">
+              <el-icon :size="40" class="text-gray-400"><DocumentDelete /></el-icon>
+            </div>
+            <p class="text-lg font-medium">暂无已完成事件</p>
           </div>
 
-          <div v-else class="completed-wrapper space-y-4">
-            <el-card v-for="event in completedList" :key="event.eventId">
-              <div class="flex items-center justify-between mb-2">
-                <div class="flex items-center gap-2">
-                  <el-tag :type="getEventTypeTag(event.eventType)" size="small">
+          <div v-else class="completed-wrapper space-y-6">
+            <div v-for="event in completedList" :key="event.eventId" class="bg-white/50 rounded-xl p-6 border border-white/60 shadow-sm hover:shadow-md transition-all">
+              <div class="flex items-center justify-between mb-4 pb-4 border-b border-gray-100">
+                <div class="flex items-center gap-3">
+                  <el-tag :type="getEventTypeTag(event.eventType)" size="default" effect="dark" class="!rounded-lg">
                     {{ getEventTypeName(event.eventType) }}
                   </el-tag>
-                  <span class="font-semibold">{{ event.title }}</span>
+                  <span class="font-bold text-lg text-gray-800">{{ event.title }}</span>
                 </div>
-                <el-tag :type="getStatusTag(event.status)" size="small">
+                <el-tag :type="getStatusTag(event.status)" size="small" effect="plain" class="!rounded-full">
                   {{ getStatusName(event.status) }}
                 </el-tag>
               </div>
 
-              <el-descriptions :column="3" size="small" border>
-                <el-descriptions-item label="人数">
-                  {{ event.currentNum }}/{{ event.targetNum }}
-                </el-descriptions-item>
-                <el-descriptions-item label="创建时间">
-                  {{ formatTime(event.createTime) }}
-                </el-descriptions-item>
-                <el-descriptions-item label="结算时间">
-                  {{ event.settleTime ? formatTime(event.settleTime) : '-' }}
-                </el-descriptions-item>
-              </el-descriptions>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 text-sm">
+                <div class="flex items-center text-gray-600 bg-white/60 px-3 py-2 rounded-lg">
+                  <span class="text-gray-400 mr-2">人数:</span>
+                  <span class="font-medium">{{ event.currentNum }}/{{ event.targetNum }}</span>
+                </div>
+                <div class="flex items-center text-gray-600 bg-white/60 px-3 py-2 rounded-lg">
+                   <span class="text-gray-400 mr-2">创建:</span>
+                   <span class="font-medium">{{ formatTime(event.createTime) }}</span>
+                </div>
+                <div class="flex items-center text-gray-600 bg-white/60 px-3 py-2 rounded-lg">
+                   <span class="text-gray-400 mr-2">结算:</span>
+                   <span class="font-medium">{{ event.settleTime ? formatTime(event.settleTime) : '-' }}</span>
+                </div>
+              </div>
 
-              <div class="mt-3">
-                <p class="font-medium mb-2">参与者</p>
+              <div class="mt-4">
+                <p class="font-semibold text-gray-700 mb-3 flex items-center">
+                  <el-icon class="mr-1"><UserFilled /></el-icon>
+                  参与者名单
+                </p>
                 <el-row :gutter="12">
                   <el-col :xs="24" :sm="12" :lg="8" v-for="participant in event.participants" :key="participant.userId">
-                    <div class="participant-card">
-                      <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-2">
-                          <el-icon><User /></el-icon>
+                    <div class="participant-card bg-white/80 p-3 rounded-lg border border-gray-100 mb-3 transition-all hover:bg-white hover:shadow-sm">
+                      <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-2 font-medium text-gray-800">
+                          <el-avatar :size="24" class="bg-gray-200 text-xs">{{ participant.nickname.charAt(0) }}</el-avatar>
                           <span>{{ participant.nickname }}</span>
                         </div>
-                        <el-tag type="info" v-if="participant.owner" size="small">发起者</el-tag>
+                        <el-tag type="warning" effect="dark" v-if="participant.owner" size="small" class="scale-90 origin-right !rounded-full">发起者</el-tag>
                       </div>
-                      <div class="text-sm text-gray-500 mt-2">
-                        <div>状态：{{ getStatusName(participant.status) }}</div>
-                        <div>加入：{{ formatTime(participant.joinTime) }}</div>
-                        <div>结算：{{ participant.settleTime ? formatTime(participant.settleTime) : '-' }}</div>
+                      <div class="text-xs text-gray-500 grid grid-cols-1 gap-1 pl-8">
+                        <div class="flex justify-between"><span>状态:</span> <span class="text-gray-700">{{ getStatusName(participant.status) }}</span></div>
+                        <div class="flex justify-between"><span>加入:</span> <span>{{ formatTime(participant.joinTime).split(' ')[1] }}</span></div>
                       </div>
                     </div>
                   </el-col>
                 </el-row>
               </div>
-            </el-card>
+            </div>
           </div>
         </div>
-      </el-card>
+      </div>
     </div>
   </Layout>
 </template>
@@ -159,7 +187,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import Layout from '@/components/Layout.vue'
 import { getEventHistory, quitEvent, getCompletedEvents } from '@/api/event'
 import dayjs from 'dayjs'
-import { Refresh, Loading, DocumentDelete, User } from '@element-plus/icons-vue'
+import { Refresh, Loading, DocumentDelete, User, UserFilled } from '@element-plus/icons-vue'
 
 const loading = ref(false)
 const historyList = ref([])
@@ -290,11 +318,19 @@ const formatTime = (time) => {
   margin: 0 auto;
 }
 
-.participant-card {
-  border: 1px solid #ebeef5;
-  border-radius: 8px;
-  padding: 10px 12px;
-  margin-bottom: 12px;
-  background: #fafafa;
+/* Glass table customization */
+:deep(.el-table) {
+  background-color: transparent;
+  --el-table-tr-bg-color: transparent;
+  --el-table-header-bg-color: transparent;
+  --el-table-row-hover-bg-color: rgba(255, 255, 255, 0.5);
+}
+
+:deep(.el-table tr) {
+  background-color: transparent;
+}
+
+:deep(.el-table th.el-table__cell) {
+  background-color: rgba(255, 255, 255, 0.4);
 }
 </style>

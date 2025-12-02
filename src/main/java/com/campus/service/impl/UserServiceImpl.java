@@ -23,7 +23,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -307,9 +306,9 @@ public class UserServiceImpl implements UserService {
         CreditRecord record = new CreditRecord();
         record.setUserId(userId);
         record.setEventId(eventId);
-        record.setScoreChange(changeScore); // 使用正确的字段名
+        record.setChangeScore(changeScore); // 使用正确的字段名
         record.setReason(reason);
-        record.setCreateTime(LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
+        record.setCreateTime(LocalDateTime.now());
         creditRecordMapper.insert(record);
     }
 
@@ -349,5 +348,10 @@ public class UserServiceImpl implements UserService {
     @Deprecated
     private Integer getCurrentCredit(Long userId) {
         return getCurrentCreditFromCacheOrDb(userId);
+    }
+    
+    @Override
+    public SysUser getUserById(Long userId) {
+        return sysUserMapper.selectById(userId);
     }
 }

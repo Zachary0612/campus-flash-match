@@ -20,4 +20,9 @@ public class CompletedEventVO {
     private String description;
     private List<String> mediaUrls;
     private List<EventParticipantVO> participants;
+    
+    // 新增字段
+    private Boolean isOwner;           // 当前用户是否为发起者
+    private String ownerNickname;      // 发起者昵称
+    private String ownerAvatar;        // 发起者头像
 }
