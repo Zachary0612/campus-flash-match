@@ -1,6 +1,9 @@
 package com.campus.util;
 
 import com.alibaba.fastjson.JSONObject;
+import com.campus.entity.ChatMessage;
+import com.campus.service.ChatMessageService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.*;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
@@ -8,6 +11,7 @@ import org.springframework.web.socket.server.HandshakeInterceptor;
 import org.springframework.web.socket.server.support.HttpSessionHandshakeInterceptor;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -19,6 +23,9 @@ import java.util.logging.Logger;
 @Component
 public class WebSocketUtil extends TextWebSocketHandler {
     private static final Logger logger = Logger.getLogger(WebSocketUtil.class.getName());
+    
+    @Autowired
+    private ChatMessageService chatMessageService;
     
     // 用户ID到WebSocket会话的映射
     private static final ConcurrentHashMap<Long, WebSocketSession> sessions = new ConcurrentHashMap<>();
@@ -215,6 +222,22 @@ public class WebSocketUtil extends TextWebSocketHandler {
                 nickname = "用户" + userId;
             }
             
+            LocalDateTime now = LocalDateTime.now();
+            
+            // 保存消息到数据库
+            try {
+                ChatMessage chatMsg = new ChatMessage();
+                chatMsg.setEventId(eventId);
+                chatMsg.setUserId(userId);
+                chatMsg.setNickname(nickname);
+                chatMsg.setAvatar(avatar);
+                chatMsg.setContent(content);
+                chatMsg.setCreateTime(now);
+                chatMessageService.saveMessage(chatMsg);
+            } catch (Exception e) {
+                logger.warning("保存聊天消息到数据库失败: " + e.getMessage());
+            }
+            
             // 构建聊天消息
             JSONObject chatMessage = new JSONObject();
             chatMessage.put("type", "event_chat");
@@ -223,7 +246,7 @@ public class WebSocketUtil extends TextWebSocketHandler {
             chatMessage.put("nickname", nickname);
             chatMessage.put("avatar", avatar);
             chatMessage.put("content", content);
-            chatMessage.put("time", java.time.LocalDateTime.now().toString());
+            chatMessage.put("time", now.toString());
             
             JSONObject wrapper = new JSONObject();
             wrapper.put("type", "event_chat");

@@ -12,6 +12,7 @@ public class NearbyEventVO {
     private Integer distance;
     private Integer currentNum;
     private Integer targetNum;
+    private Integer expireMinutes;
     private LocalDateTime createTime;
     private String description;
     private List<String> mediaUrls;

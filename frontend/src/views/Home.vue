@@ -104,7 +104,7 @@
             
             <h3 class="event-title text-lg font-bold text-gray-800 mb-3 line-clamp-1" :title="event.title">{{ event.title }}</h3>
             
-            <div class="event-info flex gap-4 mb-4 text-sm text-gray-500">
+            <div class="event-info flex flex-wrap gap-2 mb-4 text-sm text-gray-500">
               <div class="info-item flex items-center bg-gray-50 px-2 py-1 rounded-md">
                 <el-icon class="mr-1 text-primary"><User /></el-icon>
                 <span :class="{'text-primary font-semibold': event.currentNum < event.targetNum}">{{ event.currentNum }}</span>
@@ -114,6 +114,13 @@
               <div class="info-item flex items-center bg-gray-50 px-2 py-1 rounded-md">
                 <el-icon class="mr-1 text-warning"><Clock /></el-icon>
                 <span>{{ formatTime(event.createTime) }}</span>
+              </div>
+              <div 
+                class="info-item flex items-center px-2 py-1 rounded-md"
+                :class="getCountdownClass(event)"
+              >
+                <el-icon class="mr-1"><Timer /></el-icon>
+                <span class="font-medium">{{ getCountdown(event) }}</span>
               </div>
             </div>
 
@@ -322,7 +329,7 @@
 </template>
 
 <script setup>
-  import { ref, reactive, onMounted } from 'vue'
+  import { ref, reactive, onMounted, onUnmounted } from 'vue'
   import { useRouter } from 'vue-router'
   import { ElMessage } from 'element-plus'
   import dayjs from 'dayjs'
@@ -331,9 +338,12 @@
   import { getCampusPoints } from '@/api/user'
   import { publishBeacon } from '@/api/beacon'
   import { uploadFile } from '@/api/file'
-  import { ShoppingCart, UserFilled, LocationInformation, Refresh, Loading, DocumentDelete, User, Clock, Plus, Lightning, Place, Location, VideoPlay, InfoFilled } from '@element-plus/icons-vue'
+  import { ShoppingCart, UserFilled, LocationInformation, Refresh, Loading, DocumentDelete, User, Clock, Plus, Lightning, Place, Location, VideoPlay, InfoFilled, Timer } from '@element-plus/icons-vue'
 
   const router = useRouter()
+
+  const now = ref(Date.now())
+  let countdownTimer = null
 
   const loading = ref(false)
   const createLoading = ref(false)
@@ -389,6 +399,18 @@
   onMounted(() => {
     loadNearbyEvents()
     loadCampusPoints()
+    // 启动倒计时定时器，每秒更新一次
+    countdownTimer = setInterval(() => {
+      now.value = Date.now()
+    }, 1000)
+  })
+  
+  onUnmounted(() => {
+    // 清理定时器
+    if (countdownTimer) {
+      clearInterval(countdownTimer)
+      countdownTimer = null
+    }
   })
 
   const loadNearbyEvents = async () => {
@@ -606,6 +628,43 @@
   const handleBeaconMediaRemove = (file) => {
     beaconMediaFileList.value = beaconMediaFileList.value.filter((item) => item.uid !== file.uid && item.url !== file.url)
     beaconForm.mediaUrls = beaconForm.mediaUrls.filter((url) => url !== file.url)
+  }
+
+  // 计算倒计时
+  const getCountdown = (event) => {
+    if (!event.createTime || !event.expireMinutes) return '未知'
+    
+    const createTime = new Date(event.createTime).getTime()
+    const expireTime = createTime + event.expireMinutes * 60 * 1000
+    const remaining = expireTime - now.value
+    
+    if (remaining <= 0) return '已过期'
+    
+    const hours = Math.floor(remaining / (1000 * 60 * 60))
+    const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60))
+    const seconds = Math.floor((remaining % (1000 * 60)) / 1000)
+    
+    if (hours > 0) {
+      return `${hours}时${minutes}分`
+    } else if (minutes > 0) {
+      return `${minutes}分${seconds}秒`
+    } else {
+      return `${seconds}秒`
+    }
+  }
+
+  // 倒计时样式
+  const getCountdownClass = (event) => {
+    if (!event.createTime || !event.expireMinutes) return 'bg-gray-100 text-gray-500'
+    
+    const createTime = new Date(event.createTime).getTime()
+    const expireTime = createTime + event.expireMinutes * 60 * 1000
+    const remaining = expireTime - now.value
+    
+    if (remaining <= 0) return 'bg-gray-200 text-gray-500'
+    if (remaining <= 5 * 60 * 1000) return 'bg-red-100 text-red-600' // 5分钟内
+    if (remaining <= 30 * 60 * 1000) return 'bg-orange-100 text-orange-600' // 30分钟内
+    return 'bg-green-100 text-green-600'
   }
 </script>
 

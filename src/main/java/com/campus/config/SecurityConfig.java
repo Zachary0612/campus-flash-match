@@ -76,6 +76,7 @@ public class SecurityConfig {
                     "/api/rating/event/**",  // 事件评价列表（可匿名查看）
                     "/api/rating/received/**",  // 用户收到的评价（可匿名查看）
                     "/api/rating/average/**",  // 用户平均评分（可匿名查看）
+                    "/api/chat/messages/**",  // 聊天记录（参与者可查看）
                     "/media/**",  // 上传的媒体文件
                     "/error",
                     "/ws/**",  // WebSocket 端点

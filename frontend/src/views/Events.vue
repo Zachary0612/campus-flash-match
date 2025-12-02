@@ -130,9 +130,15 @@
                   </el-tag>
                   <span class="font-bold text-lg text-gray-800">{{ event.title }}</span>
                 </div>
-                <el-tag :type="getStatusTag(event.status)" size="small" effect="plain" class="!rounded-full">
-                  {{ getStatusName(event.status) }}
-                </el-tag>
+                <div class="flex items-center gap-2">
+                  <el-button type="primary" size="small" plain class="!rounded-lg" @click="goToEventChat(event.eventId)">
+                    <el-icon class="mr-1"><ChatLineSquare /></el-icon>
+                    进入聊天
+                  </el-button>
+                  <el-tag :type="getStatusTag(event.status)" size="small" effect="plain" class="!rounded-full">
+                    {{ getStatusName(event.status) }}
+                  </el-tag>
+                </div>
               </div>
 
               <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 text-sm">
@@ -183,11 +189,14 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import Layout from '@/components/Layout.vue'
 import { getEventHistory, quitEvent, getCompletedEvents } from '@/api/event'
 import dayjs from 'dayjs'
-import { Refresh, Loading, DocumentDelete, User, UserFilled } from '@element-plus/icons-vue'
+import { Refresh, Loading, DocumentDelete, User, UserFilled, ChatLineSquare } from '@element-plus/icons-vue'
+
+const router = useRouter()
 
 const loading = ref(false)
 const historyList = ref([])
@@ -309,6 +318,10 @@ const getStatusName = (status) => {
 
 const formatTime = (time) => {
   return dayjs(time).format('YYYY-MM-DD HH:mm:ss')
+}
+
+const goToEventChat = (eventId) => {
+  router.push(`/event/${eventId}`)
 }
 </script>
 

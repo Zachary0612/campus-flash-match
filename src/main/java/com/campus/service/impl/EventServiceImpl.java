@@ -263,6 +263,7 @@ public class EventServiceImpl implements EventService {
                 Object createTimeObj = eventCacheRepository.getEventField(eventId, "create_time");
                 Object descriptionObj = eventCacheRepository.getEventField(eventId, "description");
                 Object mediaObj = eventCacheRepository.getEventField(eventId, "media_urls");
+                Object expireMinutesObj = eventCacheRepository.getEventField(eventId, "expire_minutes");
                 
                 System.out.println("  -> currentNum: " + currentNumObj + ", targetNum: " + targetNumObj);
                 
@@ -290,6 +291,9 @@ public class EventServiceImpl implements EventService {
                 vo.setDistance((int) distance);
                 vo.setCurrentNum(currentNum);
                 vo.setTargetNum(targetNum);
+                if (expireMinutesObj != null) {
+                    vo.setExpireMinutes(Integer.valueOf(String.valueOf(expireMinutesObj)));
+                }
                 if (createTimeObj != null) {
                     vo.setCreateTime(LocalDateTime.parse(String.valueOf(createTimeObj)));
                 }
@@ -685,6 +689,7 @@ public class EventServiceImpl implements EventService {
                 EventParticipantVO pvo = new EventParticipantVO();
                 pvo.setUserId(participantId);
                 pvo.setNickname(user.getNickname());
+                pvo.setAvatar(user.getAvatar());
                 pvo.setOwner(participantId.equals(ownerId));
                 participants.add(pvo);
             }

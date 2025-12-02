@@ -288,6 +288,7 @@ import { useUserStore } from '@/stores/user'
 import { getEventDetail, joinEvent, quitEvent, cancelEvent } from '@/api/event'
 import { addFavorite, removeFavorite, checkFavorite } from '@/api/favorite'
 import { getEventComments, addComment, likeComment, getCommentCount } from '@/api/comment'
+import { getChatMessages } from '@/api/chat'
 import { useWebSocketStore } from '@/stores/websocket'
 import { 
   Loading, Star, StarFilled, User, UserFilled, ChatDotRound, 
@@ -579,6 +580,37 @@ const checkFavoriteStatus = async () => {
   }
 }
 
+// 从后端加载聊天记录
+const loadChatMessages = async () => {
+  try {
+    const res = await getChatMessages(eventId.value)
+    if (res.code === 200 && res.data) {
+      chatMessages.value = res.data.map(msg => ({
+        id: msg.id,
+        userId: msg.userId,
+        nickname: msg.nickname,
+        avatar: msg.avatar,
+        content: msg.content,
+        time: msg.createTime
+      }))
+    }
+  } catch (e) {
+    console.error('加载聊天记录失败:', e)
+  }
+}
+
+// 添加消息（检查重复）
+const addChatMessage = (msg) => {
+  // 检查是否重复消息（根据时间和内容判断）
+  const isDuplicate = chatMessages.value.some(
+    m => m.content === msg.content && m.userId === msg.userId && 
+         Math.abs(new Date(m.time).getTime() - new Date(msg.time).getTime()) < 2000
+  )
+  if (!isDuplicate) {
+    chatMessages.value.push(msg)
+  }
+}
+
 // 发送聊天消息
 const sendChatMessage = () => {
   if (!chatInput.value.trim()) return
@@ -592,14 +624,15 @@ const sendChatMessage = () => {
   wsStore.send(message)
   
   // 本地添加消息（乐观更新）
-  chatMessages.value.push({
+  const newMsg = {
     id: Date.now(),
     userId: userStore.userId,
     nickname: userStore.nickname,
     avatar: userStore.avatar,
     content: chatInput.value.trim(),
     time: new Date().toISOString()
-  })
+  }
+  addChatMessage(newMsg)
   
   chatInput.value = ''
   
@@ -617,35 +650,57 @@ const scrollToBottom = () => {
 }
 
 // 初始化聊天
-const initChat = () => {
+const initChat = async () => {
+  // 从后端加载历史消息
+  await loadChatMessages()
+  scrollToBottom()
+  
   // 订阅事件聊天
   wsStore.subscribeEvent(eventId.value)
   
   // 监听聊天消息
   wsStore.onMessage('event_chat', (data) => {
     if (data.eventId === eventId.value && data.userId !== userStore.userId) {
-      chatMessages.value.push({
+      const newMsg = {
         id: Date.now(),
         userId: data.userId,
         nickname: data.nickname,
         avatar: data.avatar,
         content: data.content,
         time: data.time || new Date().toISOString()
-      })
+      }
+      addChatMessage(newMsg)
       scrollToBottom()
     }
   })
 }
 
-onMounted(() => {
+onMounted(async () => {
   loadEventDetail()
   loadComments()
   loadCommentCount()
   if (userStore.isLoggedIn) {
     checkFavoriteStatus()
-    // 确保 WebSocket 连接后初始化聊天
+    // 加载聊天记录并初始化 WebSocket
+    await loadChatMessages()
+    scrollToBottom()
     if (wsStore.connected) {
-      initChat()
+      // 订阅事件聊天
+      wsStore.subscribeEvent(eventId.value)
+      wsStore.onMessage('event_chat', (data) => {
+        if (data.eventId === eventId.value && data.userId !== userStore.userId) {
+          const newMsg = {
+            id: Date.now(),
+            userId: data.userId,
+            nickname: data.nickname,
+            avatar: data.avatar,
+            content: data.content,
+            time: data.time || new Date().toISOString()
+          }
+          addChatMessage(newMsg)
+          scrollToBottom()
+        }
+      })
     }
   }
 })
