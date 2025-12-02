@@ -184,4 +184,36 @@ public class EventController {
         List<EventHistoryVO> events = eventService.getMyEvents(userId, type, pageNum, pageSize);
         return ResultDTO.success("查询成功", events);
     }
+    
+    /**
+     * 11. 确认事件完成
+     */
+    @PostMapping("/confirm")
+    public ResultDTO<String> confirmEventCompletion(
+            @RequestParam String eventId,
+            Principal principal) {
+        if (principal == null) {
+            throw new BusinessException("用户身份无效");
+        }
+        
+        Long userId = Long.valueOf(principal.getName());
+        String result = eventService.confirmEventCompletion(eventId, userId);
+        return ResultDTO.success(result, result);
+    }
+    
+    /**
+     * 12. 获取事件确认状态
+     */
+    @GetMapping("/confirm-status")
+    public ResultDTO<EventService.EventConfirmationStatus> getConfirmationStatus(
+            @RequestParam String eventId,
+            Principal principal) {
+        if (principal == null) {
+            throw new BusinessException("用户身份无效");
+        }
+        
+        Long userId = Long.valueOf(principal.getName());
+        EventService.EventConfirmationStatus status = eventService.getConfirmationStatus(eventId, userId);
+        return ResultDTO.success("查询成功", status);
+    }
 }

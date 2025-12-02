@@ -119,8 +119,49 @@
         </el-col>
       </el-row>
 
+      <!-- 事件历史 -->
+      <div class="glass rounded-2xl p-6 shadow-lg backdrop-blur-lg bg-white/30 border-white/40 animate-slide-up mb-6" style="animation-delay: 0.3s">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-lg font-bold text-gray-800 flex items-center">
+            <el-icon class="mr-2 text-blue-500"><Calendar /></el-icon>
+            事件历史
+          </h2>
+        </div>
+
+        <div v-if="eventHistory.length === 0" class="text-center py-8 text-gray-400">
+          暂无事件历史
+        </div>
+
+        <div v-else class="space-y-3">
+          <div 
+            v-for="event in eventHistory" 
+            :key="event.eventId" 
+            class="bg-white/50 rounded-xl p-4 hover:bg-white/70 transition-all cursor-pointer"
+            @click="goToEventDetail(event.eventId)"
+          >
+            <div class="flex items-start justify-between">
+              <div class="flex-1">
+                <div class="flex items-center gap-2 mb-2">
+                  <el-tag :type="getEventTypeTag(event.eventType)" size="small" effect="dark">
+                    {{ getEventTypeName(event.eventType) }}
+                  </el-tag>
+                  <el-tag :type="getStatusTag(event.status)" size="small" effect="plain">
+                    {{ getStatusName(event.status) }}
+                  </el-tag>
+                  <span class="text-sm font-medium text-gray-800">{{ event.title }}</span>
+                </div>
+                <div class="flex items-center gap-4 text-xs text-gray-500">
+                  <span>{{ event.currentNum }}/{{ event.targetNum }}人</span>
+                  <span>{{ formatTime(event.createTime) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- 收到的评价 -->
-      <div class="glass rounded-2xl p-6 shadow-lg backdrop-blur-lg bg-white/30 border-white/40 animate-slide-up" style="animation-delay: 0.3s">
+      <div class="glass rounded-2xl p-6 shadow-lg backdrop-blur-lg bg-white/30 border-white/40 animate-slide-up" style="animation-delay: 0.4s">
         <div class="flex items-center justify-between mb-6">
           <h2 class="text-lg font-bold text-gray-800 flex items-center">
             <el-icon class="mr-2 text-yellow-500"><Star /></el-icon>
@@ -225,7 +266,9 @@ import { useUserStore } from '@/stores/user'
 import { getMyProfile, getUserProfile, updateProfile, uploadAvatar, getUserStatistics } from '@/api/profile'
 import { followUser, unfollowUser, getFollowingList, getFollowerList, getUserFollowingList, getUserFollowerList } from '@/api/follow'
 import { getUserReceivedRatings } from '@/api/rating'
-import { Camera, Edit, Star, Plus, Check } from '@element-plus/icons-vue'
+import { getEventHistory } from '@/api/event'
+import { Camera, Edit, Star, Plus, Check, Calendar } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import 'dayjs/locale/zh-cn'
@@ -234,11 +277,13 @@ dayjs.extend(relativeTime)
 dayjs.locale('zh-cn')
 
 const route = useRoute()
+const router = useRouter()
 const userStore = useUserStore()
 
 const profile = ref({})
 const statistics = ref({})
 const ratings = ref([])
+const eventHistory = ref([])
 const loading = ref(false)
 const followLoading = ref(false)
 const updateLoading = ref(false)
@@ -316,6 +361,44 @@ const loadRatings = async () => {
   } catch (error) {
     console.error('加载评价失败:', error)
   }
+}
+
+// 加载事件历史
+const loadEventHistory = async () => {
+  try {
+    const res = await getEventHistory(1, 10)
+    if (res.code === 200) {
+      eventHistory.value = res.data || []
+    }
+  } catch (error) {
+    console.error('加载事件历史失败:', error)
+  }
+}
+
+// 跳转到事件详情
+const goToEventDetail = (eventId) => {
+  router.push(`/event/${eventId}`)
+}
+
+// 事件类型标签
+const getEventTypeTag = (type) => {
+  const map = { group_buy: 'primary', meetup: 'success', beacon: 'warning' }
+  return map[type] || 'info'
+}
+
+const getEventTypeName = (type) => {
+  const map = { group_buy: '拼单', meetup: '约伴', beacon: '信标' }
+  return map[type] || type
+}
+
+const getStatusTag = (status) => {
+  const map = { active: 'success', pending_confirm: 'warning', settled: 'info', expired: 'danger' }
+  return map[status] || 'info'
+}
+
+const getStatusName = (status) => {
+  const map = { active: '进行中', pending_confirm: '待确认', settled: '已结算', expired: '已过期' }
+  return map[status] || status
 }
 
 // 关注/取消关注
@@ -428,12 +511,14 @@ watch(() => route.params.userId, () => {
   loadProfile()
   loadStatistics()
   loadRatings()
+  loadEventHistory()
 })
 
 onMounted(() => {
   loadProfile()
   loadStatistics()
   loadRatings()
+  loadEventHistory()
 })
 </script>
 

@@ -1,5 +1,6 @@
 package com.campus.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 /**
@@ -15,6 +16,7 @@ public class EventRatingDTO {
     /**
      * 被评价者ID
      */
+    @JsonProperty("targetUserId")
     private Long ratedUserId;
     
     /**

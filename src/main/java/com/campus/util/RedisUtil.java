@@ -115,6 +115,10 @@ public class RedisUtil {
     public Long sRemove(String key, Object... values) {
         return redisTemplate.opsForSet().remove(key, values);
     }
+    
+    public Long sSize(String key) {
+        return redisTemplate.opsForSet().size(key);
+    }
 
     // Key 操作
     public DataType type(String key) {

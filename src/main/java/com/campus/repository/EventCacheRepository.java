@@ -298,10 +298,62 @@ public class EventCacheRepository {
         String eventInfoKey = EventConstant.REDIS_KEY_EVENT_INFO + eventId;
         String eventParticipantsKey = EventConstant.REDIS_KEY_EVENT_PARTICIPANTS + eventId;
         String eventLocationKey = EventConstant.REDIS_KEY_EVENT_LOCATION + eventType;
+        String eventConfirmationsKey = EventConstant.REDIS_KEY_EVENT_CONFIRMATIONS + eventId;
         
         redisUtil.delete(eventInfoKey);
         redisUtil.delete(eventParticipantsKey);
+        redisUtil.delete(eventConfirmationsKey);
         redisUtil.geoRemove(eventLocationKey, eventId);
+    }
+    
+    /**
+     * 更新事件状态
+     */
+    public void updateEventStatus(String eventId, String status) {
+        String eventInfoKey = EventConstant.REDIS_KEY_EVENT_INFO + eventId;
+        redisUtil.hSet(eventInfoKey, "status", status);
+    }
+    
+    /**
+     * 获取事件状态
+     */
+    public String getEventStatus(String eventId) {
+        Object status = getEventField(eventId, "status");
+        return status != null ? String.valueOf(status) : EventConstant.EVENT_STATUS_ACTIVE;
+    }
+    
+    /**
+     * 添加用户确认
+     */
+    public void addConfirmation(String eventId, Long userId, long expireSeconds) {
+        String confirmationsKey = EventConstant.REDIS_KEY_EVENT_CONFIRMATIONS + eventId;
+        redisUtil.sAdd(confirmationsKey, userId.toString());
+        redisUtil.expire(confirmationsKey, expireSeconds, TimeUnit.SECONDS);
+    }
+    
+    /**
+     * 检查用户是否已确认
+     */
+    public boolean hasConfirmed(String eventId, Long userId) {
+        String confirmationsKey = EventConstant.REDIS_KEY_EVENT_CONFIRMATIONS + eventId;
+        return redisUtil.sIsMember(confirmationsKey, userId.toString());
+    }
+    
+    /**
+     * 获取已确认用户数量
+     */
+    public long getConfirmationCount(String eventId) {
+        String confirmationsKey = EventConstant.REDIS_KEY_EVENT_CONFIRMATIONS + eventId;
+        Long size = redisUtil.sSize(confirmationsKey);
+        return size != null ? size : 0;
+    }
+    
+    /**
+     * 获取已确认用户集合
+     */
+    public Set<Object> getConfirmations(String eventId) {
+        String confirmationsKey = EventConstant.REDIS_KEY_EVENT_CONFIRMATIONS + eventId;
+        return redisUtil.sMembers(confirmationsKey);
     }
 
     /**

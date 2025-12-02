@@ -93,12 +93,35 @@
             @click="goToEventDetail(event.eventId)"
           >
             <div class="event-header flex justify-between items-start mb-3">
-              <el-tag :type="getEventTypeTag(event.eventType)" effect="dark" size="small" class="!rounded-lg shadow-sm">
-                {{ getEventTypeName(event.eventType) }}
-              </el-tag>
+              <div class="flex items-center gap-2">
+                <el-tag :type="getEventTypeTag(event.eventType)" effect="dark" size="small" class="!rounded-lg shadow-sm">
+                  {{ getEventTypeName(event.eventType) }}
+                </el-tag>
+                <el-tag v-if="event.status === 'pending_confirm'" type="warning" size="small" effect="plain" class="!rounded-lg">
+                  待确认
+                </el-tag>
+              </div>
               <span class="distance bg-gray-100 px-2 py-0.5 rounded text-xs font-medium text-gray-600 flex items-center">
                 <el-icon class="mr-1"><Location /></el-icon>
                 {{ event.distance }}m
+              </span>
+            </div>
+            
+            <!-- 发起者信息 -->
+            <div class="flex items-center gap-2 mb-3">
+              <el-avatar 
+                :size="28" 
+                :src="event.ownerAvatar" 
+                class="cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                @click.stop="goToUserProfile(event.ownerId)"
+              >
+                {{ event.ownerNickname?.charAt(0) || '?' }}
+              </el-avatar>
+              <span 
+                class="text-sm text-gray-600 hover:text-primary cursor-pointer transition-colors"
+                @click.stop="goToUserProfile(event.ownerId)"
+              >
+                {{ event.ownerNickname || '未知用户' }}
               </span>
             </div>
             
@@ -568,6 +591,12 @@
 
   const goToEventDetail = (eventId) => {
     router.push(`/event/${eventId}`)
+  }
+
+  const goToUserProfile = (userId) => {
+    if (userId) {
+      router.push(`/user/${userId}`)
+    }
   }
 
   const getMediaUrl = (url) => {

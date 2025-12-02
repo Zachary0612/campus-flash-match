@@ -3,6 +3,7 @@ package com.campus.mapper;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 import java.util.List;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.campus.entity.EventHistory;
@@ -59,12 +60,29 @@ public interface EventHistoryMapper extends BaseMapper<EventHistory> {
      * 查询用户参与的所有事件（包括发起的和加入的）
      * 通过 participants 字段中包含用户ID 或 user_id 等于用户ID
      */
-    @Select("SELECT DISTINCT * FROM event_history WHERE participants::text LIKE CONCAT('%\"userId\":', #{userId}, '%') OR participants::text LIKE CONCAT('%\"userId\": ', #{userId}, '%') OR user_id = #{userId} ORDER BY create_time DESC")
+    @Select("SELECT DISTINCT * FROM event_history WHERE " +
+            "participants::text LIKE CONCAT('%\"userId\":', #{userId}, '%') OR " +
+            "participants::text LIKE CONCAT('%\"userId\": ', #{userId}, '%') OR " +
+            "participants::text LIKE CONCAT('%\"userId\":', #{userId}, ',%') OR " +
+            "participants::text LIKE CONCAT('%\"userId\":', #{userId}, '}%') OR " +
+            "user_id = #{userId} " +
+            "ORDER BY create_time DESC")
     List<EventHistory> findAllUserEvents(@Param("userId") Long userId);
     
     /**
      * 查询用户参与但非发起的事件
      */
-    @Select("SELECT DISTINCT * FROM event_history WHERE (participants::text LIKE CONCAT('%\"userId\":', #{userId}, '%') OR participants::text LIKE CONCAT('%\"userId\": ', #{userId}, '%')) AND user_id != #{userId} ORDER BY create_time DESC")
+    @Select("SELECT DISTINCT * FROM event_history WHERE (" +
+            "participants::text LIKE CONCAT('%\"userId\":', #{userId}, '%') OR " +
+            "participants::text LIKE CONCAT('%\"userId\": ', #{userId}, '%') OR " +
+            "participants::text LIKE CONCAT('%\"userId\":', #{userId}, ',%') OR " +
+            "participants::text LIKE CONCAT('%\"userId\":', #{userId}, '}%')" +
+            ") AND user_id != #{userId} ORDER BY create_time DESC")
     List<EventHistory> findJoinedEvents(@Param("userId") Long userId);
+    
+    /**
+     * 更新事件状态
+     */
+    @Update("UPDATE event_history SET status = #{status} WHERE event_id = #{eventId}")
+    int updateEventStatus(@Param("eventId") String eventId, @Param("status") String status);
 }

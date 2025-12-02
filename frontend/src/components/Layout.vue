@@ -27,7 +27,7 @@
           
           <el-dropdown @command="handleCommand" trigger="click">
             <span class="user-dropdown flex items-center cursor-pointer hover:bg-white/50 px-2 py-1 rounded-lg transition-colors">
-              <el-avatar :size="36" class="mr-2 border-2 border-white shadow-sm bg-gradient-to-br from-blue-100 to-purple-100 text-primary font-bold">{{ nickname.charAt(0) }}</el-avatar>
+              <el-avatar :size="36" :src="avatar" class="mr-2 border-2 border-white shadow-sm bg-gradient-to-br from-blue-100 to-purple-100 text-primary font-bold">{{ nickname.charAt(0) }}</el-avatar>
               <span class="font-medium text-gray-700">{{ nickname }}</span>
               <el-icon class="ml-1 text-gray-400"><ArrowDown /></el-icon>
             </span>
@@ -144,6 +144,7 @@ const wsStore = useWebSocketStore()
 const activeMenu = computed(() => route.path)
 const nickname = computed(() => userStore.nickname)
 const creditScore = computed(() => userStore.creditScore)
+const avatar = computed(() => userStore.avatar)
 const unreadCount = ref(0)
 
 // 加载未读消息数

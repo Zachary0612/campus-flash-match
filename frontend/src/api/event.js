@@ -117,3 +117,25 @@ export function cancelEvent(eventId) {
     params: { eventId }
   })
 }
+
+/**
+ * 确认事件完成
+ */
+export function confirmEventCompletion(eventId) {
+  return request({
+    url: '/event/confirm',
+    method: 'post',
+    params: { eventId }
+  })
+}
+
+/**
+ * 获取事件确认状态
+ */
+export function getConfirmationStatus(eventId) {
+  return request({
+    url: '/event/confirm-status',
+    method: 'get',
+    params: { eventId }
+  })
+}

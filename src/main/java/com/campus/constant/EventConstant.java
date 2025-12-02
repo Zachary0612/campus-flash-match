@@ -11,9 +11,13 @@ public class EventConstant {
 
     // Event Status
     public static final String EVENT_STATUS_ACTIVE = "active";           // 事件状态：进行中
+    public static final String EVENT_STATUS_PENDING_CONFIRM = "pending_confirm"; // 事件状态：待确认（满员后等待所有成员确认）
     public static final String EVENT_STATUS_COMPLETED = "settled";   // 事件状态：已完成
     public static final String EVENT_STATUS_CANCELLED = "cancelled";   // 事件状态：已取消
     public static final String EVENT_STATUS_EXPIRED = "expired";       // 事件状态：已过期
+    
+    // Redis Keys - Confirmation
+    public static final String REDIS_KEY_EVENT_CONFIRMATIONS = "event:confirmations:"; // 已确认用户集合
     
     // Settlement Status
     public static final String SETTLE_STATUS_SUCCESS = "SUCCESS";          // 结算状态：成功

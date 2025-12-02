@@ -100,4 +100,35 @@ public interface EventService {
      * @return 事件历史列表（包含详细信息）
      */
     List<EventHistoryVO> getMyEvents(Long userId, String type, Integer pageNum, Integer pageSize);
+    
+    /**
+     * 确认事件完成
+     * @param eventId 事件ID
+     * @param userId 用户ID
+     * @return 确认结果信息
+     */
+    String confirmEventCompletion(String eventId, Long userId);
+    
+    /**
+     * 获取事件确认状态
+     * @param eventId 事件ID
+     * @return 确认状态信息（已确认人数、总人数、当前用户是否已确认）
+     */
+    EventConfirmationStatus getConfirmationStatus(String eventId, Long userId);
+    
+    /**
+     * 事件确认状态DTO
+     */
+    class EventConfirmationStatus {
+        private int confirmedCount;
+        private int totalCount;
+        private boolean currentUserConfirmed;
+        
+        public int getConfirmedCount() { return confirmedCount; }
+        public void setConfirmedCount(int confirmedCount) { this.confirmedCount = confirmedCount; }
+        public int getTotalCount() { return totalCount; }
+        public void setTotalCount(int totalCount) { this.totalCount = totalCount; }
+        public boolean isCurrentUserConfirmed() { return currentUserConfirmed; }
+        public void setCurrentUserConfirmed(boolean currentUserConfirmed) { this.currentUserConfirmed = currentUserConfirmed; }
+    }
 }

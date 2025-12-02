@@ -140,12 +140,16 @@ public class EventServiceImpl implements EventService {
             );
 
             // 6.2 存储事件详情（Hash）
+            // 信标类型：发布者不算参与者，current_num初始为0
+            boolean isBeacon = EventConstant.EVENT_TYPE_BEACON.equals(dto.getEventType());
+            int initialCurrentNum = isBeacon ? 0 : 1;
+            
             Map<String, Object> eventInfo = new HashMap<>();
             eventInfo.put("owner", userId.toString());
             eventInfo.put("event_type", dto.getEventType());
             eventInfo.put("title", dto.getTitle());
             eventInfo.put("target_num", dto.getTargetNum());
-            eventInfo.put("current_num", 1);
+            eventInfo.put("current_num", initialCurrentNum);
             eventInfo.put("expire_minutes", dto.getExpireMinutes());
             eventInfo.put("ext_meta", JSON.toJSONString(extMetaMap));
             eventInfo.put("description", dto.getDescription());
@@ -156,8 +160,10 @@ public class EventServiceImpl implements EventService {
             eventInfo.put("expire_time", expireTime.toString());
             eventCacheRepository.saveEventInfo(eventId, eventInfo, expireSeconds);
 
-            // 6.3 存储参与者集合（Set）
-            eventCacheRepository.addParticipant(eventId, userId, expireSeconds);
+            // 6.3 存储参与者集合（Set）- 信标类型发布者不加入参与者
+            if (!isBeacon) {
+                eventCacheRepository.addParticipant(eventId, userId, expireSeconds);
+            }
 
             // 6.4 立即插入事件历史记录（解决"我的事件"显示问题）
             EventHistory eventHistory = new EventHistory();
@@ -166,10 +172,24 @@ public class EventServiceImpl implements EventService {
             eventHistory.setEventType(dto.getEventType());
             eventHistory.setTitle(dto.getTitle());
             eventHistory.setTargetNum(dto.getTargetNum());
-            eventHistory.setCurrentNum(1); // 发起者默认参与
+            eventHistory.setCurrentNum(initialCurrentNum); // 信标为0，其他为1
             eventHistory.setExpireMinutes(dto.getExpireMinutes());
             eventHistory.setExtMeta(JSON.toJSONString(extMetaMap));
-            // participants字段使用数据库默认值NULL
+            
+            // 初始化参与者列表（非信标类型包含发起者）
+            if (!isBeacon) {
+                SysUser owner = userService.getUserById(userId);
+                List<Map<String, Object>> participants = new ArrayList<>();
+                Map<String, Object> ownerParticipant = new HashMap<>();
+                ownerParticipant.put("userId", userId);
+                ownerParticipant.put("nickname", owner != null ? owner.getNickname() : "用户" + userId);
+                ownerParticipant.put("owner", true);
+                ownerParticipant.put("status", "joined");
+                ownerParticipant.put("joinTime", createTime.toString());
+                participants.add(ownerParticipant);
+                eventHistory.setParticipants(JSON.toJSONString(participants));
+            }
+            
             eventHistory.setStatus(EventConstant.EVENT_STATUS_ACTIVE); // 活跃状态
             eventHistory.setCreateTime(createTime);
             eventHistory.setExpireTime(expireTime);
@@ -275,13 +295,26 @@ public class EventServiceImpl implements EventService {
                 Integer currentNum = Integer.valueOf(String.valueOf(currentNumObj));
                 Integer targetNum = Integer.valueOf(String.valueOf(targetNumObj));
                 
-                // 满员跳过
-                if (currentNum >= targetNum) {
-                    System.out.println("  -> 跳过: 事件已满员 (" + currentNum + "/" + targetNum + ")");
+                // 获取事件状态
+                String status = eventCacheRepository.getEventStatus(eventId);
+                
+                // 已结算的事件跳过
+                if (EventConstant.EVENT_STATUS_COMPLETED.equals(status)) {
+                    System.out.println("  -> 跳过: 事件已结算");
+                    continue;
+                }
+                
+                // 满员且非待确认状态的跳过（待确认状态的事件仍显示，让参与者可以确认）
+                if (currentNum >= targetNum && !EventConstant.EVENT_STATUS_PENDING_CONFIRM.equals(status)) {
+                    System.out.println("  -> 跳过: 事件已满员且非待确认状态 (" + currentNum + "/" + targetNum + ")");
                     continue;
                 }
 
                 System.out.println("  -> 通过所有检查，添加到结果列表");
+                
+                // 获取发起者信息
+                Object ownerObj = eventCacheRepository.getEventField(eventId, "owner");
+                Long ownerId = ownerObj != null ? Long.valueOf(String.valueOf(ownerObj)) : null;
                 
                 // 封装VO
                 NearbyEventVO vo = new NearbyEventVO();
@@ -291,6 +324,18 @@ public class EventServiceImpl implements EventService {
                 vo.setDistance((int) distance);
                 vo.setCurrentNum(currentNum);
                 vo.setTargetNum(targetNum);
+                vo.setStatus(status);
+                vo.setOwnerId(ownerId);
+                
+                // 获取发起者详细信息
+                if (ownerId != null) {
+                    SysUser owner = userService.getUserById(ownerId);
+                    if (owner != null) {
+                        vo.setOwnerNickname(owner.getNickname());
+                        vo.setOwnerAvatar(owner.getAvatar());
+                    }
+                }
+                
                 if (expireMinutesObj != null) {
                     vo.setExpireMinutes(Integer.valueOf(String.valueOf(expireMinutesObj)));
                 }
@@ -364,6 +409,14 @@ public class EventServiceImpl implements EventService {
         
         System.out.println("JoinEvent Debug: eventId=" + eventId + ", currentNum=" + currentNum + ", targetNum=" + targetNum + ", isFull=" + isFull);
 
+        // 5.1 同步更新数据库中的参与者信息
+        try {
+            SysUser joiner = userService.getUserById(userId);
+            updateEventParticipantsInDB(eventId, userId, joiner != null ? joiner.getNickname() : "用户" + userId, currentNum);
+        } catch (Exception e) {
+            System.err.println("更新数据库参与者信息失败: " + e.getMessage());
+        }
+
         // 5.5 通知事件发起者有新成员加入（仅当未满员时）
         if (!isFull) {
             try {
@@ -383,26 +436,40 @@ public class EventServiceImpl implements EventService {
             }
         }
 
-        // 6. 满员则直接同步结算（不依赖异步MQ，确保Redis数据未被清理前完成结算）
+        // 6. 满员则进入待确认状态（等待所有成员确认后才结算）
         if (isFull) {
-            System.out.println("JoinEvent Debug: Event full, triggering synchronous settlement for " + eventId);
+            System.out.println("JoinEvent Debug: Event full, entering pending_confirm status for " + eventId);
             
-            // 在结算前先获取Redis数据，避免被定时任务清理
-            Map<Object, Object> eventInfo = eventCacheRepository.getEventInfo(eventId);
-            Set<Object> participantsSet = eventCacheRepository.getParticipants(eventId);
+            // 更新事件状态为待确认
+            eventCacheRepository.updateEventStatus(eventId, EventConstant.EVENT_STATUS_PENDING_CONFIRM);
             
-            if (eventInfo != null && participantsSet != null) {
-                System.out.println("JoinEvent Debug: Successfully retrieved Redis data before settlement");
-                // 直接同步调用结算服务，传入已获取的数据
-                settlementService.settleEventWithData(eventId, EventConstant.SETTLE_STATUS_SUCCESS, eventInfo, participantsSet);
-            } else {
-                System.out.println("JoinEvent Debug: Redis data already missing, falling back to basic settlement");
-                // 如果Redis数据已丢失，仍尝试基本结算
-                settlementService.settleEvent(eventId, EventConstant.SETTLE_STATUS_SUCCESS);
+            // 更新数据库中的事件状态
+            eventHistoryMapper.updateEventStatus(eventId, EventConstant.EVENT_STATUS_PENDING_CONFIRM);
+            
+            // 通知所有参与者事件已满员，请确认完成
+            try {
+                Object titleObj = eventCacheRepository.getEventField(eventId, "title");
+                String title = titleObj != null ? String.valueOf(titleObj) : "事件";
+                Set<Object> participantsSet = eventCacheRepository.getParticipants(eventId);
+                
+                for (Object pObj : participantsSet) {
+                    Long pUserId = Long.valueOf(String.valueOf(pObj));
+                    String notifyMsg = String.format("事件【%s】已满员，请在事件完成后点击确认完成", title);
+                    notificationService.sendNotification(pUserId, "event_pending_confirm", "事件待确认", notifyMsg, eventId, null);
+                }
+                
+                // 也通知发起者（如果发起者不在参与者列表中，如信标）
+                Object ownerObj = eventCacheRepository.getEventField(eventId, "owner");
+                if (ownerObj != null) {
+                    Long ownerId = Long.valueOf(String.valueOf(ownerObj));
+                    if (!participantsSet.contains(ownerId.toString())) {
+                        String notifyMsg = String.format("您发起的事件【%s】已满员，请在事件完成后点击确认完成", title);
+                        notificationService.sendNotification(ownerId, "event_pending_confirm", "事件待确认", notifyMsg, eventId, null);
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("发送待确认通知失败: " + e.getMessage());
             }
-
-            // 推送满员通知给所有参与者（注意：结算后Redis数据已清理，需要从结算前获取）
-            // 通知已在settlementService.settleEvent中推送，这里不再重复
         }
 
         // 7. 封装响应
@@ -627,6 +694,58 @@ public class EventServiceImpl implements EventService {
         return Collections.emptyList();
     }
     
+    /**
+     * 更新数据库中的参与者信息
+     */
+    private void updateEventParticipantsInDB(String eventId, Long userId, String nickname, Integer currentNum) {
+        QueryWrapper<EventHistory> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("event_id", eventId);
+        EventHistory event = eventHistoryMapper.selectOne(queryWrapper);
+        
+        if (event == null) {
+            return;
+        }
+        
+        // 解析现有参与者
+        List<Map<String, Object>> participants = new ArrayList<>();
+        if (event.getParticipants() != null && !event.getParticipants().isEmpty()) {
+            try {
+                List<Map> existingList = JSON.parseArray(event.getParticipants(), Map.class);
+                for (Map m : existingList) {
+                    Map<String, Object> p = new HashMap<>();
+                    p.put("userId", m.get("userId"));
+                    p.put("nickname", m.get("nickname"));
+                    p.put("owner", m.get("owner"));
+                    p.put("status", m.get("status"));
+                    p.put("joinTime", m.get("joinTime"));
+                    participants.add(p);
+                }
+            } catch (Exception e) {
+                // 忽略解析错误
+            }
+        }
+        
+        // 检查是否已存在
+        boolean exists = participants.stream()
+                .anyMatch(p -> userId.equals(Long.valueOf(String.valueOf(p.get("userId")))));
+        
+        if (!exists) {
+            // 添加新参与者
+            Map<String, Object> newParticipant = new HashMap<>();
+            newParticipant.put("userId", userId);
+            newParticipant.put("nickname", nickname);
+            newParticipant.put("owner", false);
+            newParticipant.put("status", "joined");
+            newParticipant.put("joinTime", LocalDateTime.now().toString());
+            participants.add(newParticipant);
+        }
+        
+        // 更新数据库
+        event.setParticipants(JSON.toJSONString(participants));
+        event.setCurrentNum(currentNum);
+        eventHistoryMapper.updateById(event);
+    }
+    
     @Override
     public EventDetailVO getEventDetail(String eventId, Long userId) {
         // 先尝试从Redis获取活跃事件
@@ -657,7 +776,10 @@ public class EventServiceImpl implements EventService {
         vo.setTargetNum(Integer.valueOf(String.valueOf(eventInfo.get("target_num"))));
         vo.setCurrentNum(Integer.valueOf(String.valueOf(eventInfo.get("current_num"))));
         vo.setExpireMinutes(Integer.valueOf(String.valueOf(eventInfo.get("expire_minutes"))));
-        vo.setStatus(EventConstant.EVENT_STATUS_ACTIVE);
+        
+        // 从Redis获取实际状态
+        String status = eventCacheRepository.getEventStatus(eventId);
+        vo.setStatus(status != null ? status : EventConstant.EVENT_STATUS_ACTIVE);
         
         Long ownerId = Long.valueOf(String.valueOf(eventInfo.get("owner")));
         vo.setOwnerId(ownerId);
@@ -739,10 +861,28 @@ public class EventServiceImpl implements EventService {
         }
         vo.setMediaUrls(extractMediaUrls(vo.getExtMeta()));
         
-        // 解析参与者
+        // 解析参与者并填充用户信息
         if (event.getParticipants() != null) {
             try {
-                List<EventParticipantVO> participants = JSON.parseArray(event.getParticipants(), EventParticipantVO.class);
+                List<Map> pList = JSON.parseArray(event.getParticipants(), Map.class);
+                List<EventParticipantVO> participants = new ArrayList<>();
+                for (Map p : pList) {
+                    if (p.get("userId") != null) {
+                        Long pUserId = Long.valueOf(String.valueOf(p.get("userId")));
+                        EventParticipantVO pvo = new EventParticipantVO();
+                        pvo.setUserId(pUserId);
+                        SysUser pUser = userService.getUserById(pUserId);
+                        if (pUser != null) {
+                            pvo.setNickname(pUser.getNickname());
+                            pvo.setAvatar(pUser.getAvatar());
+                        } else if (p.get("nickname") != null) {
+                            pvo.setNickname(String.valueOf(p.get("nickname")));
+                        }
+                        pvo.setOwner(Boolean.TRUE.equals(p.get("owner")));
+                        pvo.setStatus(p.get("status") != null ? String.valueOf(p.get("status")) : null);
+                        participants.add(pvo);
+                    }
+                }
                 vo.setParticipants(participants);
             } catch (Exception e) {
                 vo.setParticipants(new ArrayList<>());
@@ -951,7 +1091,17 @@ public class EventServiceImpl implements EventService {
             vo.setTargetNum(event.getTargetNum());
             vo.setCurrentNum(event.getCurrentNum());
             vo.setExpireMinutes(event.getExpireMinutes());
-            vo.setStatus(event.getStatus());
+            
+            // 优先使用Redis中的最新状态
+            String status = event.getStatus();
+            if (eventCacheRepository.eventExists(event.getEventId())) {
+                String redisStatus = eventCacheRepository.getEventStatus(event.getEventId());
+                if (redisStatus != null && !redisStatus.isEmpty()) {
+                    status = redisStatus;
+                }
+            }
+            vo.setStatus(status);
+            
             vo.setExtMeta(event.getExtMeta());
             vo.setCreateTime(event.getCreateTime());
             vo.setExpireTime(event.getExpireTime());
@@ -1015,5 +1165,125 @@ public class EventServiceImpl implements EventService {
         }
         
         return voList;
+    }
+    
+    @Override
+    public String confirmEventCompletion(String eventId, Long userId) {
+        // 1. 检查事件是否存在
+        if (!eventCacheRepository.eventExists(eventId)) {
+            // 尝试从数据库获取
+            QueryWrapper<EventHistory> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("event_id", eventId);
+            EventHistory event = eventHistoryMapper.selectOne(queryWrapper);
+            if (event == null) {
+                throw new BusinessException("事件不存在");
+            }
+            // 数据库中的事件已经不在Redis中，可能已结算
+            if (EventConstant.EVENT_STATUS_COMPLETED.equals(event.getStatus())) {
+                throw new BusinessException("事件已结算完成");
+            }
+            throw new BusinessException("事件已过期");
+        }
+        
+        // 2. 检查事件状态是否为待确认
+        String status = eventCacheRepository.getEventStatus(eventId);
+        if (!EventConstant.EVENT_STATUS_PENDING_CONFIRM.equals(status)) {
+            throw new BusinessException("事件尚未满员，无需确认");
+        }
+        
+        // 3. 检查用户是否为参与者或发起者
+        Object ownerObj = eventCacheRepository.getEventField(eventId, "owner");
+        Long ownerId = ownerObj != null ? Long.valueOf(String.valueOf(ownerObj)) : null;
+        boolean isOwner = userId.equals(ownerId);
+        boolean isParticipant = eventCacheRepository.isParticipant(eventId, userId);
+        
+        if (!isOwner && !isParticipant) {
+            throw new BusinessException("您不是该事件的参与者");
+        }
+        
+        // 4. 检查是否已确认
+        if (eventCacheRepository.hasConfirmed(eventId, userId)) {
+            throw new BusinessException("您已确认过该事件");
+        }
+        
+        // 5. 添加确认
+        Object expireTimeObj = eventCacheRepository.getEventField(eventId, "expire_time");
+        long expireSeconds = 86400; // 默认24小时
+        if (expireTimeObj != null) {
+            LocalDateTime expireTime = LocalDateTime.parse(String.valueOf(expireTimeObj));
+            expireSeconds = java.time.Duration.between(LocalDateTime.now(), expireTime.plusDays(1)).getSeconds();
+            if (expireSeconds < 0) expireSeconds = 86400;
+        }
+        eventCacheRepository.addConfirmation(eventId, userId, expireSeconds);
+        
+        // 6. 检查是否所有人都已确认
+        Set<Object> participants = eventCacheRepository.getParticipants(eventId);
+        int totalCount = participants.size();
+        // 如果发起者不在参与者列表中（如信标），也需要计入
+        if (ownerId != null && !participants.contains(ownerId.toString())) {
+            totalCount++;
+        }
+        
+        long confirmedCount = eventCacheRepository.getConfirmationCount(eventId);
+        
+        if (confirmedCount >= totalCount) {
+            // 所有人都已确认，触发结算
+            System.out.println("All participants confirmed, triggering settlement for event: " + eventId);
+            
+            Map<Object, Object> eventInfo = eventCacheRepository.getEventInfo(eventId);
+            Set<Object> participantsSet = eventCacheRepository.getParticipants(eventId);
+            
+            if (eventInfo != null && participantsSet != null) {
+                settlementService.settleEventWithData(eventId, EventConstant.SETTLE_STATUS_SUCCESS, eventInfo, participantsSet);
+            } else {
+                settlementService.settleEvent(eventId, EventConstant.SETTLE_STATUS_SUCCESS);
+            }
+            
+            return "所有成员已确认，事件结算完成！";
+        }
+        
+        return String.format("确认成功！已有 %d/%d 人确认", confirmedCount, totalCount);
+    }
+    
+    @Override
+    public EventConfirmationStatus getConfirmationStatus(String eventId, Long userId) {
+        EventConfirmationStatus status = new EventConfirmationStatus();
+        
+        // 检查事件是否存在
+        if (!eventCacheRepository.eventExists(eventId)) {
+            // 从数据库获取
+            QueryWrapper<EventHistory> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("event_id", eventId);
+            EventHistory event = eventHistoryMapper.selectOne(queryWrapper);
+            if (event != null) {
+                // 已结算的事件
+                status.setConfirmedCount(event.getCurrentNum());
+                status.setTotalCount(event.getCurrentNum());
+                status.setCurrentUserConfirmed(true);
+            }
+            return status;
+        }
+        
+        // 获取参与者数量
+        Set<Object> participants = eventCacheRepository.getParticipants(eventId);
+        int totalCount = participants.size();
+        
+        // 如果发起者不在参与者列表中，也计入
+        Object ownerObj = eventCacheRepository.getEventField(eventId, "owner");
+        if (ownerObj != null) {
+            Long ownerId = Long.valueOf(String.valueOf(ownerObj));
+            if (!participants.contains(ownerId.toString())) {
+                totalCount++;
+            }
+        }
+        
+        long confirmedCount = eventCacheRepository.getConfirmationCount(eventId);
+        boolean currentUserConfirmed = eventCacheRepository.hasConfirmed(eventId, userId);
+        
+        status.setConfirmedCount((int) confirmedCount);
+        status.setTotalCount(totalCount);
+        status.setCurrentUserConfirmed(currentUserConfirmed);
+        
+        return status;
     }
 }

@@ -5,6 +5,11 @@ export function submitRating(data) {
   return request.post('/rating/submit', data)
 }
 
+// 评价用户（别名）
+export function rateUser(data) {
+  return request.post('/rating/submit', data)
+}
+
 // 获取收到的评价
 export function getReceivedRatings(params = {}) {
   return request.get('/rating/received', { params })

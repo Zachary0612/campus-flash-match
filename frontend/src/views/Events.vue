@@ -79,18 +79,40 @@
                   </template>
                 </el-table-column>
                 
-                <el-table-column label="操作" width="120" fixed="right">
+                <el-table-column label="操作" width="180" fixed="right">
                   <template #default="{ row }">
-                    <el-button
-                      v-if="row.status === 'active'"
-                      type="danger"
-                      size="small"
-                      plain
-                      class="!rounded-lg"
-                      @click="handleQuit(row.eventId)"
-                    >
-                      退出
-                    </el-button>
+                    <div class="flex gap-2">
+                      <el-button
+                        v-if="row.status === 'active'"
+                        type="danger"
+                        size="small"
+                        plain
+                        class="!rounded-lg"
+                        @click="handleQuit(row.eventId)"
+                      >
+                        退出
+                      </el-button>
+                      <el-button
+                        v-if="row.status === 'pending_confirm'"
+                        type="success"
+                        size="small"
+                        class="!rounded-lg"
+                        @click="handleConfirm(row.eventId)"
+                        :loading="confirmingEventId === row.eventId"
+                      >
+                        确认完成
+                      </el-button>
+                      <el-button
+                        v-if="row.status === 'pending_confirm' || row.status === 'active'"
+                        type="primary"
+                        size="small"
+                        plain
+                        class="!rounded-lg"
+                        @click="goToEventDetail(row.eventId)"
+                      >
+                        详情
+                      </el-button>
+                    </div>
                   </template>
                 </el-table-column>
               </el-table>
@@ -166,7 +188,7 @@
                     <div class="participant-card bg-white/80 p-3 rounded-lg border border-gray-100 mb-3 transition-all hover:bg-white hover:shadow-sm">
                       <div class="flex items-center justify-between mb-2">
                         <div class="flex items-center gap-2 font-medium text-gray-800">
-                          <el-avatar :size="24" class="bg-gray-200 text-xs">{{ participant.nickname.charAt(0) }}</el-avatar>
+                          <el-avatar :size="24" :src="participant.avatar" class="bg-gray-200 text-xs">{{ participant.nickname.charAt(0) }}</el-avatar>
                           <span>{{ participant.nickname }}</span>
                         </div>
                         <el-tag type="warning" effect="dark" v-if="participant.owner" size="small" class="scale-90 origin-right !rounded-full">发起者</el-tag>
@@ -175,6 +197,16 @@
                         <div class="flex justify-between"><span>状态:</span> <span class="text-gray-700">{{ getStatusName(participant.status) }}</span></div>
                         <div class="flex justify-between"><span>加入:</span> <span>{{ formatTime(participant.joinTime).split(' ')[1] }}</span></div>
                       </div>
+                      <el-button 
+                        v-if="participant.userId && userStore?.userId && !participant.owner && participant.userId !== userStore.userId"
+                        type="primary" 
+                        size="small" 
+                        plain
+                        class="!rounded-lg mt-2 w-full"
+                        @click="handleRateUser(participant.userId, participant.nickname, event.eventId)"
+                      >
+                        评价
+                      </el-button>
                     </div>
                   </el-col>
                 </el-row>
@@ -184,19 +216,57 @@
         </div>
       </div>
     </div>
+
+    <!-- 评价对话框 -->
+    <el-dialog v-model="showRatingDialog" title="评价用户" width="500px">
+      <div class="mb-4">
+        <p class="text-gray-600">评价用户: <span class="font-bold">{{ ratingForm.targetNickname }}</span></p>
+      </div>
+      <el-form :model="ratingForm" label-width="80px">
+        <el-form-item label="评分">
+          <el-rate v-model="ratingForm.score" :max="5" size="large" />
+        </el-form-item>
+        <el-form-item label="评价标签">
+          <el-checkbox-group v-model="ratingForm.tags">
+            <el-checkbox label="准时守信" />
+            <el-checkbox label="友好热情" />
+            <el-checkbox label="靠谱负责" />
+            <el-checkbox label="沟通顺畅" />
+            <el-checkbox label="值得推荐" />
+          </el-checkbox-group>
+        </el-form-item>
+        <el-form-item label="评价内容">
+          <el-input 
+            v-model="ratingForm.comment" 
+            type="textarea" 
+            :rows="4" 
+            placeholder="说说你的评价吧..."
+            maxlength="200"
+            show-word-limit
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showRatingDialog = false">取消</el-button>
+        <el-button type="primary" @click="submitRating" :loading="ratingLoading">提交评价</el-button>
+      </template>
+    </el-dialog>
   </Layout>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import Layout from '@/components/Layout.vue'
-import { getEventHistory, quitEvent, getCompletedEvents } from '@/api/event'
+import { useUserStore } from '@/stores/user'
+import { getEventHistory, quitEvent, getCompletedEvents, confirmEventCompletion } from '@/api/event'
+import { rateUser } from '@/api/rating'
 import dayjs from 'dayjs'
 import { Refresh, Loading, DocumentDelete, User, UserFilled, ChatLineSquare } from '@element-plus/icons-vue'
 
 const router = useRouter()
+const userStore = useUserStore()
 
 const loading = ref(false)
 const historyList = ref([])
@@ -206,6 +276,19 @@ const total = ref(0)
 const activeTab = ref('history')
 const completedList = ref([])
 const completedLoading = ref(false)
+const confirmingEventId = ref(null)
+
+// 评价相关
+const showRatingDialog = ref(false)
+const ratingLoading = ref(false)
+const ratingForm = reactive({
+  targetUserId: null,
+  targetNickname: '',
+  eventId: '',
+  score: 5,
+  tags: [],
+  comment: ''
+})
 
 onMounted(() => {
   loadHistory()
@@ -299,6 +382,7 @@ const getEventTypeName = (type) => {
 const getStatusTag = (status) => {
   const map = {
     active: 'success',
+    pending_confirm: 'warning',
     full: 'warning',
     settled: 'info',
     expired: 'danger'
@@ -309,6 +393,7 @@ const getStatusTag = (status) => {
 const getStatusName = (status) => {
   const map = {
     active: '进行中',
+    pending_confirm: '待确认',
     full: '已满员',
     settled: '已结算',
     expired: '已过期'
@@ -322,6 +407,63 @@ const formatTime = (time) => {
 
 const goToEventChat = (eventId) => {
   router.push(`/event/${eventId}`)
+}
+
+const goToEventDetail = (eventId) => {
+  router.push(`/event/${eventId}`)
+}
+
+const handleConfirm = async (eventId) => {
+  confirmingEventId.value = eventId
+  try {
+    const res = await confirmEventCompletion(eventId)
+    if (res.code === 200) {
+      ElMessage.success(res.message || '确认成功')
+      loadHistory()
+    }
+  } catch (error) {
+    console.error('确认失败:', error)
+  } finally {
+    confirmingEventId.value = null
+  }
+}
+
+// 打开评价对话框
+const handleRateUser = (userId, nickname, eventId) => {
+  ratingForm.targetUserId = userId
+  ratingForm.targetNickname = nickname
+  ratingForm.eventId = eventId
+  ratingForm.score = 5
+  ratingForm.tags = []
+  ratingForm.comment = ''
+  showRatingDialog.value = true
+}
+
+// 提交评价
+const submitRating = async () => {
+  if (!ratingForm.comment.trim()) {
+    ElMessage.warning('请填写评价内容')
+    return
+  }
+  
+  ratingLoading.value = true
+  try {
+    const res = await rateUser({
+      targetUserId: ratingForm.targetUserId,
+      eventId: ratingForm.eventId,
+      score: ratingForm.score,
+      tags: ratingForm.tags.join(','),
+      comment: ratingForm.comment
+    })
+    if (res.code === 200) {
+      ElMessage.success('评价成功')
+      showRatingDialog.value = false
+    }
+  } catch (error) {
+    console.error('评价失败:', error)
+  } finally {
+    ratingLoading.value = false
+  }
 }
 </script>
 

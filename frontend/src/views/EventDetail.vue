@@ -58,6 +58,34 @@
                   退出事件
                 </el-button>
               </template>
+              
+              <!-- 待确认状态：显示确认按钮 -->
+              <template v-if="event.status === 'pending_confirm' && (isOwner || isJoined)">
+                <el-button
+                  v-if="!confirmationStatus.currentUserConfirmed"
+                  type="success"
+                  @click="handleConfirmEvent"
+                  :loading="confirmLoading"
+                >
+                  <el-icon class="mr-1"><Check /></el-icon>
+                  确认完成
+                </el-button>
+                <el-tag v-else type="success" effect="plain" size="large">
+                  <el-icon class="mr-1"><Check /></el-icon>
+                  已确认
+                </el-tag>
+              </template>
+            </div>
+          </div>
+          
+          <!-- 待确认状态提示 -->
+          <div v-if="event.status === 'pending_confirm'" class="mt-4 bg-orange-50 border border-orange-200 rounded-lg p-4">
+            <div class="flex items-center text-orange-600">
+              <el-icon class="mr-2 text-xl"><Bell /></el-icon>
+              <span class="font-medium">事件已满员，等待所有成员确认完成</span>
+            </div>
+            <div class="mt-2 text-sm text-orange-500">
+              确认进度：{{ confirmationStatus.confirmedCount }}/{{ confirmationStatus.totalCount }} 人已确认
             </div>
           </div>
 
@@ -211,12 +239,12 @@
               <div v-else class="space-y-4">
                 <div v-for="comment in comments" :key="comment.id" class="comment-item">
                   <div class="flex gap-3">
-                    <el-avatar :size="40" @click="goToProfile(comment.userId)" class="cursor-pointer">
-                      {{ comment.userNickname?.charAt(0) }}
+                    <el-avatar :size="40" :src="comment.avatar" @click="goToProfile(comment.userId)" class="cursor-pointer">
+                      {{ comment.nickname?.charAt(0) }}
                     </el-avatar>
                     <div class="flex-1">
                       <div class="flex items-center justify-between mb-1">
-                        <span class="font-medium text-gray-800">{{ comment.userNickname }}</span>
+                        <span class="font-medium text-gray-800">{{ comment.nickname }}</span>
                         <span class="text-xs text-gray-400">{{ formatTime(comment.createTime) }}</span>
                       </div>
                       <p class="text-gray-600 mb-2">{{ comment.content }}</p>
@@ -233,10 +261,10 @@
                       <!-- 回复列表 -->
                       <div v-if="comment.replies?.length" class="mt-3 pl-4 border-l-2 border-gray-100 space-y-3">
                         <div v-for="reply in comment.replies" :key="reply.id" class="flex gap-2">
-                          <el-avatar :size="28">{{ reply.userNickname?.charAt(0) }}</el-avatar>
+                          <el-avatar :size="28" :src="reply.avatar">{{ reply.nickname?.charAt(0) }}</el-avatar>
                           <div class="flex-1">
                             <div class="text-sm">
-                              <span class="font-medium text-gray-800">{{ reply.userNickname }}</span>
+                              <span class="font-medium text-gray-800">{{ reply.nickname }}</span>
                               <span v-if="reply.replyToNickname" class="text-gray-400">
                                 回复 <span class="text-primary">@{{ reply.replyToNickname }}</span>
                               </span>
@@ -268,7 +296,7 @@
 
       <!-- 回复对话框 -->
       <el-dialog v-model="showReplyDialog" title="回复评论" width="400px">
-        <p class="text-gray-500 mb-3">回复 @{{ replyTarget?.userNickname }}</p>
+        <p class="text-gray-500 mb-3">回复 @{{ replyTarget?.nickname }}</p>
         <el-input v-model="replyContent" type="textarea" :rows="3" placeholder="输入回复内容..." />
         <template #footer>
           <el-button @click="showReplyDialog = false">取消</el-button>
@@ -285,14 +313,14 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import Layout from '@/components/Layout.vue'
 import { useUserStore } from '@/stores/user'
-import { getEventDetail, joinEvent, quitEvent, cancelEvent } from '@/api/event'
+import { getEventDetail, joinEvent, quitEvent, cancelEvent, confirmEventCompletion, getConfirmationStatus } from '@/api/event'
 import { addFavorite, removeFavorite, checkFavorite } from '@/api/favorite'
 import { getEventComments, addComment, likeComment, getCommentCount } from '@/api/comment'
 import { getChatMessages } from '@/api/chat'
 import { useWebSocketStore } from '@/stores/websocket'
 import { 
   Loading, Star, StarFilled, User, UserFilled, ChatDotRound, 
-  Pointer, Warning, ChatLineSquare 
+  Pointer, Warning, ChatLineSquare, Check, Bell 
 } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
@@ -328,6 +356,14 @@ const chatMessages = ref([])
 const chatInput = ref('')
 const chatContainerRef = ref(null)
 
+// 确认相关
+const confirmLoading = ref(false)
+const confirmationStatus = ref({
+  confirmedCount: 0,
+  totalCount: 0,
+  currentUserConfirmed: false
+})
+
 const eventId = computed(() => route.params.eventId)
 const isOwner = computed(() => event.value?.ownerId === userStore.userId)
 const isJoined = computed(() => event.value?.isJoined)
@@ -340,11 +376,45 @@ const loadEventDetail = async () => {
     if (res.code === 200) {
       event.value = res.data
       isFavorite.value = res.data.isFavorite || false
+      
+      // 如果是待确认状态，加载确认状态
+      if (res.data.status === 'pending_confirm') {
+        loadConfirmationStatus()
+      }
     }
   } catch (error) {
     console.error('加载事件详情失败:', error)
   } finally {
     loading.value = false
+  }
+}
+
+// 加载确认状态
+const loadConfirmationStatus = async () => {
+  try {
+    const res = await getConfirmationStatus(eventId.value)
+    if (res.code === 200) {
+      confirmationStatus.value = res.data
+    }
+  } catch (error) {
+    console.error('加载确认状态失败:', error)
+  }
+}
+
+// 确认事件完成
+const handleConfirmEvent = async () => {
+  confirmLoading.value = true
+  try {
+    const res = await confirmEventCompletion(eventId.value)
+    if (res.code === 200) {
+      ElMessage.success(res.message || '确认成功')
+      // 重新加载事件详情和确认状态
+      await loadEventDetail()
+    }
+  } catch (error) {
+    console.error('确认失败:', error)
+  } finally {
+    confirmLoading.value = false
   }
 }
 
@@ -393,10 +463,14 @@ const handleFavorite = async () => {
     if (isFavorite.value) {
       await removeFavorite(eventId.value)
       isFavorite.value = false
+      if (event.value.favoriteCount > 0) {
+        event.value.favoriteCount--
+      }
       ElMessage.success('已取消收藏')
     } else {
       await addFavorite(eventId.value)
       isFavorite.value = true
+      event.value.favoriteCount = (event.value.favoriteCount || 0) + 1
       ElMessage.success('收藏成功')
     }
   } catch (error) {
@@ -532,6 +606,8 @@ const goToProfile = (userId) => {
 const getStatusName = (status) => {
   const statuses = {
     'active': '进行中',
+    'pending_confirm': '待确认',
+    'settled': '已完成',
     'completed': '已完成',
     'cancelled': '已取消',
     'expired': '已过期'
@@ -543,6 +619,8 @@ const getStatusName = (status) => {
 const getStatusTag = (status) => {
   const tags = {
     'active': 'success',
+    'pending_confirm': 'warning',
+    'settled': 'info',
     'completed': 'info',
     'cancelled': 'danger',
     'expired': 'warning'
