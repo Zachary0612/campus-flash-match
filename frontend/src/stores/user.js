@@ -14,6 +14,7 @@ export const useUserStore = defineStore('user', () => {
   const userId = computed(() => userInfo.value?.userId || null)
   const nickname = computed(() => userInfo.value?.nickname || '')
   const creditScore = computed(() => userInfo.value?.creditScore || 0)
+  const avatar = computed(() => userInfo.value?.avatar || '')
   
   // 登录
   async function login(loginForm) {
@@ -25,7 +26,8 @@ export const useUserStore = defineStore('user', () => {
         userInfo.value = {
           userId: res.data.userId,
           nickname: res.data.nickname,
-          creditScore: res.data.creditScore
+          creditScore: res.data.creditScore,
+          avatar: res.data.avatar || ''
         }
         
         // 保存到localStorage
@@ -87,6 +89,14 @@ export const useUserStore = defineStore('user', () => {
     }
   }
   
+  // 设置头像
+  function setAvatar(avatarUrl) {
+    if (userInfo.value) {
+      userInfo.value.avatar = avatarUrl
+      localStorage.setItem('userInfo', JSON.stringify(userInfo.value))
+    }
+  }
+  
   // 检查token是否有效
   function checkTokenValidity() {
     if (!token.value) {
@@ -125,10 +135,12 @@ export const useUserStore = defineStore('user', () => {
     userId,
     nickname,
     creditScore,
+    avatar,
     login,
     register,
     logout,
     updateCreditScore,
+    setAvatar,
     checkTokenValidity
   }
 })

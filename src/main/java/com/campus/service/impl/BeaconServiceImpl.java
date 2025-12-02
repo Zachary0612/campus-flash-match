@@ -40,6 +40,14 @@ public class BeaconServiceImpl implements BeaconService {
         eventDTO.setTargetNum(1); // 信标仅1人可认领
         eventDTO.setExpireMinutes(dto.getExpireMinutes());
         eventDTO.setPointId(dto.getPointId());
+        
+        // 设置图片和描述
+        if (dto.getMediaUrls() != null && !dto.getMediaUrls().isEmpty()) {
+            eventDTO.setMediaUrls(dto.getMediaUrls());
+        }
+        if (dto.getDescription() != null && !dto.getDescription().isEmpty()) {
+            eventDTO.setDescription(dto.getDescription());
+        }
 
         // 3. 扩展信息：存储信标具体位置描述
         java.util.Map<String, Object> extMeta = new java.util.HashMap<>();

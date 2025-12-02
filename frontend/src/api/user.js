@@ -72,3 +72,14 @@ export function getCampusPoints() {
     method: 'get'
   })
 }
+
+/**
+ * 更新用户头像
+ */
+export function updateAvatar(avatarUrl) {
+  return request({
+    url: '/profile/avatar',
+    method: 'put',
+    data: { avatarUrl }
+  })
+}

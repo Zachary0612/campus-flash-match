@@ -72,7 +72,7 @@ public class ProfileController {
     }
 
     /**
-     * 上传头像
+     * 上传头像（文件上传方式）
      */
     @PostMapping("/avatar")
     public ResultDTO<String> uploadAvatar(@RequestParam("file") MultipartFile file, Principal principal) {
@@ -88,6 +88,23 @@ public class ProfileController {
         profileService.updateAvatar(userId, avatarUrl);
         
         return ResultDTO.success("头像上传成功", avatarUrl);
+    }
+    
+    /**
+     * 更新头像（URL方式）
+     */
+    @PutMapping("/avatar")
+    public ResultDTO<Void> updateAvatar(@RequestBody java.util.Map<String, String> body, Principal principal) {
+        if (principal == null) {
+            throw new BusinessException("用户身份无效");
+        }
+        Long userId = Long.valueOf(principal.getName());
+        String avatarUrl = body.get("avatarUrl");
+        if (avatarUrl == null || avatarUrl.isEmpty()) {
+            throw new BusinessException("头像URL不能为空");
+        }
+        profileService.updateAvatar(userId, avatarUrl);
+        return ResultDTO.success("头像更新成功");
     }
 
     /**

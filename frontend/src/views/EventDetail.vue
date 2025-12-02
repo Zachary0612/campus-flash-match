@@ -120,12 +120,62 @@
                   class="flex items-center gap-3 p-2 rounded-lg hover:bg-white/50 cursor-pointer"
                   @click="goToProfile(p.userId)"
                 >
-                  <el-avatar :size="36">{{ p.nickname?.charAt(0) }}</el-avatar>
+                  <el-avatar :size="36" :src="p.avatar">{{ p.nickname?.charAt(0) }}</el-avatar>
                   <div class="flex-1">
                     <span class="text-gray-800">{{ p.nickname }}</span>
                     <el-tag v-if="p.isOwner" size="small" type="warning" class="ml-2">发起者</el-tag>
                   </div>
                 </div>
+              </div>
+            </div>
+            
+            <!-- 实时聊天区域（仅参与者可见） -->
+            <div v-if="isJoined || isOwner" class="glass rounded-2xl p-6 mt-6 shadow-lg backdrop-blur-lg bg-white/30 border-white/40 animate-slide-up" style="animation-delay: 0.2s">
+              <h3 class="font-bold text-gray-800 mb-4 flex items-center">
+                <el-icon class="mr-2 text-orange-500"><ChatLineSquare /></el-icon>
+                实时聊天
+                <span class="ml-2 text-xs text-gray-400">(仅参与者可见)</span>
+              </h3>
+              
+              <!-- 聊天消息列表 -->
+              <div ref="chatContainerRef" class="chat-messages h-64 overflow-y-auto bg-white/50 rounded-lg p-3 mb-3 space-y-2">
+                <div v-if="chatMessages.length === 0" class="text-center py-8 text-gray-400 text-sm">
+                  暂无消息，快来打个招呼吧~
+                </div>
+                <div
+                  v-for="msg in chatMessages"
+                  :key="msg.id"
+                  class="flex gap-2"
+                  :class="{ 'flex-row-reverse': msg.userId === userStore.userId }"
+                >
+                  <el-avatar :size="28" :src="msg.avatar">{{ msg.nickname?.charAt(0) }}</el-avatar>
+                  <div :class="msg.userId === userStore.userId ? 'text-right' : ''">
+                    <div class="text-xs text-gray-400 mb-1">
+                      <span class="font-medium text-gray-600">{{ msg.nickname }}</span>
+                      <span class="ml-2">{{ formatChatTime(msg.time) }}</span>
+                    </div>
+                    <div
+                      class="inline-block px-3 py-2 rounded-lg text-sm max-w-[200px] break-words"
+                      :class="msg.userId === userStore.userId ? 'bg-primary text-white' : 'bg-gray-100 text-gray-800'"
+                    >
+                      {{ msg.content }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 发送消息 -->
+              <div class="flex gap-2">
+                <el-input
+                  v-model="chatInput"
+                  placeholder="输入消息..."
+                  @keyup.enter="sendChatMessage"
+                  size="small"
+                  class="flex-1"
+                />
+                <el-button type="primary" size="small" @click="sendChatMessage" :disabled="!chatInput.trim()">
+                  发送
+                </el-button>
               </div>
             </div>
           </el-col>
@@ -238,9 +288,10 @@ import { useUserStore } from '@/stores/user'
 import { getEventDetail, joinEvent, quitEvent, cancelEvent } from '@/api/event'
 import { addFavorite, removeFavorite, checkFavorite } from '@/api/favorite'
 import { getEventComments, addComment, likeComment, getCommentCount } from '@/api/comment'
+import { useWebSocketStore } from '@/stores/websocket'
 import { 
   Loading, Star, StarFilled, User, UserFilled, ChatDotRound, 
-  Pointer, Warning 
+  Pointer, Warning, ChatLineSquare 
 } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
@@ -269,6 +320,12 @@ const showReplyDialog = ref(false)
 const replyTarget = ref(null)
 const replyContent = ref('')
 const replyLoading = ref(false)
+
+// 聊天相关
+const wsStore = useWebSocketStore()
+const chatMessages = ref([])
+const chatInput = ref('')
+const chatContainerRef = ref(null)
 
 const eventId = computed(() => route.params.eventId)
 const isOwner = computed(() => event.value?.ownerId === userStore.userId)
@@ -505,6 +562,11 @@ const formatTime = (time) => {
   return dayjs(time).fromNow()
 }
 
+// 格式化聊天时间
+const formatChatTime = (time) => {
+  return dayjs(time).format('HH:mm')
+}
+
 // 检查收藏状态
 const checkFavoriteStatus = async () => {
   try {
@@ -517,12 +579,74 @@ const checkFavoriteStatus = async () => {
   }
 }
 
+// 发送聊天消息
+const sendChatMessage = () => {
+  if (!chatInput.value.trim()) return
+  
+  const message = {
+    type: 'event_chat',
+    eventId: eventId.value,
+    content: chatInput.value.trim()
+  }
+  
+  wsStore.send(message)
+  
+  // 本地添加消息（乐观更新）
+  chatMessages.value.push({
+    id: Date.now(),
+    userId: userStore.userId,
+    nickname: userStore.nickname,
+    avatar: userStore.avatar,
+    content: chatInput.value.trim(),
+    time: new Date().toISOString()
+  })
+  
+  chatInput.value = ''
+  
+  // 滚动到底部
+  scrollToBottom()
+}
+
+// 滚动到底部
+const scrollToBottom = () => {
+  setTimeout(() => {
+    if (chatContainerRef.value) {
+      chatContainerRef.value.scrollTop = chatContainerRef.value.scrollHeight
+    }
+  }, 100)
+}
+
+// 初始化聊天
+const initChat = () => {
+  // 订阅事件聊天
+  wsStore.subscribeEvent(eventId.value)
+  
+  // 监听聊天消息
+  wsStore.onMessage('event_chat', (data) => {
+    if (data.eventId === eventId.value && data.userId !== userStore.userId) {
+      chatMessages.value.push({
+        id: Date.now(),
+        userId: data.userId,
+        nickname: data.nickname,
+        avatar: data.avatar,
+        content: data.content,
+        time: data.time || new Date().toISOString()
+      })
+      scrollToBottom()
+    }
+  })
+}
+
 onMounted(() => {
   loadEventDetail()
   loadComments()
   loadCommentCount()
   if (userStore.isLoggedIn) {
     checkFavoriteStatus()
+    // 确保 WebSocket 连接后初始化聊天
+    if (wsStore.connected) {
+      initChat()
+    }
   }
 })
 </script>

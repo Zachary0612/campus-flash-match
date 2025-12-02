@@ -10,7 +10,9 @@ export function publishBeacon(data) {
     data: {
       locationDesc: data.locationDesc,
       expireMinutes: data.expireMinutes,
-      pointId: data.pointId
+      pointId: data.pointId,
+      description: data.description,
+      mediaUrls: data.mediaUrls
     }
   })
 }

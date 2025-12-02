@@ -5,9 +5,22 @@
         <!-- 用户信息卡片 -->
         <el-col :span="8" class="mb-6">
           <div class="glass rounded-2xl p-8 text-center shadow-lg backdrop-blur-lg bg-white/30 border-white/40 animate-slide-up" style="animation-delay: 0.1s">
-            <div class="relative inline-block mb-6">
+            <div class="relative inline-block mb-6 group">
               <div class="absolute inset-0 bg-gradient-to-br from-primary to-purple-500 rounded-full blur opacity-50"></div>
-              <el-avatar :size="120" class="relative border-4 border-white shadow-md text-4xl font-bold bg-gradient-to-br from-primary to-blue-400">{{ userStore.nickname.charAt(0) }}</el-avatar>
+              <el-avatar :size="120" :src="userStore.avatar" class="relative border-4 border-white shadow-md text-4xl font-bold bg-gradient-to-br from-primary to-blue-400">
+                {{ userStore.nickname?.charAt(0) }}
+              </el-avatar>
+              <el-upload
+                class="avatar-uploader absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                :action="uploadAction"
+                :show-file-list="false"
+                :http-request="handleAvatarUpload"
+                accept="image/*"
+              >
+                <div class="w-full h-full rounded-full bg-black/50 flex items-center justify-center">
+                  <el-icon class="text-white text-2xl"><Camera /></el-icon>
+                </div>
+              </el-upload>
             </div>
             <div class="user-name text-2xl font-bold text-gray-800 mb-2">{{ userStore.nickname }}</div>
             <div class="user-id text-sm text-gray-500 bg-gray-100/50 inline-block px-3 py-1 rounded-full mb-6">ID: {{ userStore.userId }}</div>
@@ -136,8 +149,9 @@ import { ElMessage } from 'element-plus'
 import Layout from '@/components/Layout.vue'
 import { useUserStore } from '@/stores/user'
 import { useWebSocketStore } from '@/stores/websocket'
-import { bindLocation, getCampusPoints } from '@/api/user'
-import { Location, InfoFilled, Bell } from '@element-plus/icons-vue'
+import { bindLocation, getCampusPoints, updateAvatar } from '@/api/user'
+import { uploadFile } from '@/api/file'
+import { Location, InfoFilled, Bell, Camera } from '@element-plus/icons-vue'
 
 const userStore = useUserStore()
 const wsStore = useWebSocketStore()
@@ -145,10 +159,38 @@ const wsStore = useWebSocketStore()
 const bindLoading = ref(false)
 const pointsLoading = ref(false)
 const campusPoints = ref([])
+const uploadAction = '/api/file/upload'
 
 const locationForm = reactive({
   pointId: null
 })
+
+// 头像上传
+const handleAvatarUpload = async (options) => {
+  const { file, onError, onSuccess } = options
+  const formData = new FormData()
+  formData.append('file', file)
+  try {
+    // 先上传文件
+    const uploadRes = await uploadFile(formData)
+    const avatarUrl = uploadRes.data
+    
+    // 再更新用户头像
+    const res = await updateAvatar(avatarUrl)
+    if (res.code === 200) {
+      userStore.setAvatar(avatarUrl)
+      ElMessage.success('头像更新成功')
+      onSuccess(res, file)
+    } else {
+      ElMessage.error('更新头像失败: ' + res.message)
+      onError(new Error(res.message))
+    }
+  } catch (error) {
+    console.error('上传头像失败:', error)
+    ElMessage.error(error?.response?.data?.message || '上传失败')
+    onError(error)
+  }
+}
 
 // 获取校园点位列表
 const loadCampusPoints = async () => {

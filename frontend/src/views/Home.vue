@@ -88,8 +88,9 @@
           <div
             v-for="(event, index) in nearbyEvents"
             :key="event.eventId"
-            class="event-card bg-white/80 backdrop-blur-sm rounded-xl p-5 border border-white/60 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+            class="event-card bg-white/80 backdrop-blur-sm rounded-xl p-5 border border-white/60 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer"
             :style="{ animationDelay: `${index * 0.05}s` }"
+            @click="goToEventDetail(event.eventId)"
           >
             <div class="event-header flex justify-between items-start mb-3">
               <el-tag :type="getEventTypeTag(event.eventType)" effect="dark" size="small" class="!rounded-lg shadow-sm">
@@ -148,7 +149,7 @@
               type="primary"
               class="w-full !rounded-lg !h-10 !font-medium shadow-md hover:shadow-primary/40 transition-all"
               :class="{'!bg-gray-300 !border-gray-300 !shadow-none': event.currentNum >= event.targetNum}"
-              @click="handleJoinEvent(event.eventId)"
+              @click.stop="handleJoinEvent(event.eventId)"
               :disabled="event.currentNum >= event.targetNum"
             >
               {{ event.currentNum >= event.targetNum ? '已满员' : '立即参与' }}
@@ -235,10 +236,23 @@
       title="发布信标"
       width="500px"
       class="custom-dialog rounded-2xl"
+      destroy-on-close
     >
       <el-form :model="beaconForm" :rules="beaconRules" ref="beaconFormRef" label-width="100px" class="pt-4">
         <el-form-item label="位置描述" prop="locationDesc">
           <el-input v-model="beaconForm.locationDesc" placeholder="你在哪里？穿什么衣服？" class="custom-input" />
+        </el-form-item>
+        
+        <el-form-item label="详细说明">
+          <el-input
+            v-model="beaconForm.description"
+            type="textarea"
+            :rows="2"
+            placeholder="可以补充更多信息，如想找什么样的人等"
+            maxlength="200"
+            show-word-limit
+            class="custom-textarea"
+          />
         </el-form-item>
         
         <el-form-item label="有效时长" prop="expireMinutes">
@@ -255,6 +269,22 @@
               :value="point.id" 
             />
           </el-select>
+        </el-form-item>
+        
+        <el-form-item label="图片/视频">
+          <el-upload
+            class="media-uploader"
+            :action="uploadAction"
+            list-type="picture-card"
+            :file-list="beaconMediaFileList"
+            :limit="3"
+            :on-remove="handleBeaconMediaRemove"
+            :http-request="handleBeaconMediaUpload"
+            :on-preview="handlePreview"
+          >
+            <el-icon><Plus /></el-icon>
+          </el-upload>
+          <div class="text-xs text-gray-400 mt-1">最多上传3张图片</div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -293,6 +323,7 @@
 
 <script setup>
   import { ref, reactive, onMounted } from 'vue'
+  import { useRouter } from 'vue-router'
   import { ElMessage } from 'element-plus'
   import dayjs from 'dayjs'
   import Layout from '@/components/Layout.vue'
@@ -301,6 +332,8 @@
   import { publishBeacon } from '@/api/beacon'
   import { uploadFile } from '@/api/file'
   import { ShoppingCart, UserFilled, LocationInformation, Refresh, Loading, DocumentDelete, User, Clock, Plus, Lightning, Place, Location, VideoPlay, InfoFilled } from '@element-plus/icons-vue'
+
+  const router = useRouter()
 
   const loading = ref(false)
   const createLoading = ref(false)
@@ -316,6 +349,7 @@
   const beaconFormRef = ref(null)
 
   const mediaFileList = ref([])
+  const beaconMediaFileList = ref([])
   const uploadAction = '/api/file/upload'
   const previewDialogVisible = ref(false)
   const previewUrl = ref('')
@@ -334,7 +368,9 @@
   const beaconForm = reactive({
     locationDesc: '',
     expireMinutes: 120,
-    pointId: null
+    pointId: null,
+    description: '',
+    mediaUrls: []
   })
 
   const eventRules = {
@@ -402,6 +438,9 @@
     beaconForm.locationDesc = ''
     beaconForm.expireMinutes = 120
     beaconForm.pointId = null
+    beaconForm.description = ''
+    beaconForm.mediaUrls = []
+    beaconMediaFileList.value = []
     beaconDialogVisible.value = true
   }
 
@@ -505,6 +544,10 @@
     return /\.(mp4|mov|webm|avi|mkv)$/i.test(url)
   }
 
+  const goToEventDetail = (eventId) => {
+    router.push(`/event/${eventId}`)
+  }
+
   const getMediaUrl = (url) => {
     if (!url) return ''
     // 如果已经是完整URL，直接返回
@@ -541,6 +584,28 @@
     if (!file.url) return
     previewUrl.value = file.url
     previewDialogVisible.value = true
+  }
+
+  const handleBeaconMediaUpload = async (options) => {
+    const { file, onError, onSuccess } = options
+    const formData = new FormData()
+    formData.append('file', file)
+    try {
+      const res = await uploadFile(formData)
+      const url = res.data
+      beaconForm.mediaUrls.push(url)
+      beaconMediaFileList.value.push({ name: file.name, url, status: 'success' })
+      onSuccess(res, file)
+    } catch (error) {
+      console.error('上传文件失败:', error)
+      ElMessage.error(error?.response?.data?.message || '上传失败')
+      onError(error)
+    }
+  }
+
+  const handleBeaconMediaRemove = (file) => {
+    beaconMediaFileList.value = beaconMediaFileList.value.filter((item) => item.uid !== file.uid && item.url !== file.url)
+    beaconForm.mediaUrls = beaconForm.mediaUrls.filter((url) => url !== file.url)
   }
 </script>
 

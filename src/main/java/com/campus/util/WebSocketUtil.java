@@ -68,13 +68,17 @@ public class WebSocketUtil extends TextWebSocketHandler {
             String type = json.getString("type");
             
             // 根据消息类型处理
+            Long userId = getUserIdFromSession(session);
             switch (type) {
                 case "subscribe_event":
                     // 订阅事件更新
                     String eventId = json.getString("eventId");
-                    Long userId = getUserIdFromSession(session);
                     subscribeEvent(userId, eventId);
                     logger.info("用户 [" + userId + "] 订阅事件: " + eventId);
+                    break;
+                case "event_chat":
+                    // 事件内聊天消息
+                    handleEventChat(session, json, userId);
                     break;
                 case "ping":
                     // 心跳包响应（不记录日志，避免刷屏）
@@ -188,6 +192,50 @@ public class WebSocketUtil extends TextWebSocketHandler {
         if (subscribers != null) {
             subscribers.remove(userId);
             logger.info("用户 [" + userId + "] 取消订阅事件 [" + eventId + "]");
+        }
+    }
+    
+    /**
+     * 处理事件内聊天消息
+     */
+    private void handleEventChat(WebSocketSession session, JSONObject json, Long userId) {
+        try {
+            String eventId = json.getString("eventId");
+            String content = json.getString("content");
+            
+            if (eventId == null || content == null || content.trim().isEmpty()) {
+                return;
+            }
+            
+            // 获取用户昵称（从会话属性中获取，如果没有则使用用户ID）
+            Map<String, Object> attributes = session.getAttributes();
+            String nickname = (String) attributes.get("nickname");
+            String avatar = (String) attributes.get("avatar");
+            if (nickname == null) {
+                nickname = "用户" + userId;
+            }
+            
+            // 构建聊天消息
+            JSONObject chatMessage = new JSONObject();
+            chatMessage.put("type", "event_chat");
+            chatMessage.put("eventId", eventId);
+            chatMessage.put("userId", userId);
+            chatMessage.put("nickname", nickname);
+            chatMessage.put("avatar", avatar);
+            chatMessage.put("content", content);
+            chatMessage.put("time", java.time.LocalDateTime.now().toString());
+            
+            JSONObject wrapper = new JSONObject();
+            wrapper.put("type", "event_chat");
+            wrapper.put("data", chatMessage);
+            wrapper.put("timestamp", System.currentTimeMillis());
+            
+            // 广播给事件的所有订阅者（包括发送者）
+            broadcastToEvent(eventId, wrapper.toJSONString());
+            
+            logger.info("用户 [" + userId + "] 在事件 [" + eventId + "] 发送聊天消息");
+        } catch (Exception e) {
+            logger.warning("处理事件聊天消息失败: " + e.getMessage());
         }
     }
     
