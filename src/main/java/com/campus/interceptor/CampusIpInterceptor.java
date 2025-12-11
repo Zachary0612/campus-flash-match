@@ -13,8 +13,8 @@ import java.util.Map;
 @Component
 public class CampusIpInterceptor implements HandlerInterceptor {
 
-    @Value("${campus.ip-prefix}")
-    private String campusIpPrefix;
+    @Value("${campus.ip-prefixes}")
+    private String campusIpPrefixes;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
@@ -25,7 +25,7 @@ public class CampusIpInterceptor implements HandlerInterceptor {
         
         // 获取客户端IP
         String clientIp = getClientIp(request);
-        System.out.println("客户端IP: " + clientIp + ", 要求前缀: " + campusIpPrefix);
+        System.out.println("客户端IP: " + clientIp + ", 允许的前缀: " + campusIpPrefixes);
         
         // 开发环境：允许本地访问
         if (clientIp.equals("127.0.0.1") || clientIp.equals("0:0:0:0:0:0:0:1") || clientIp.equals("localhost")) {
@@ -33,15 +33,24 @@ public class CampusIpInterceptor implements HandlerInterceptor {
             return true;
         }
         
-        // 校验IP前缀
-        if (!clientIp.startsWith(campusIpPrefix)) {
+        // 校验IP前缀（支持多个前缀，用逗号分隔）
+        String[] prefixes = campusIpPrefixes.split(",");
+        boolean allowed = false;
+        for (String prefix : prefixes) {
+            if (clientIp.startsWith(prefix.trim())) {
+                allowed = true;
+                break;
+            }
+        }
+        
+        if (!allowed) {
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             response.setContentType("application/json;charset=UTF-8");
             
             // 构造错误响应
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("code", 403);
-            errorResponse.put("message", "仅支持校园IP访问，当前IP: " + clientIp + "，要求前缀: " + campusIpPrefix);
+            errorResponse.put("message", "仅支持校园IP访问，当前IP: " + clientIp + "，允许的前缀: " + campusIpPrefixes);
             
             // 使用Jackson ObjectMapper序列化响应
             ObjectMapper objectMapper = new ObjectMapper();

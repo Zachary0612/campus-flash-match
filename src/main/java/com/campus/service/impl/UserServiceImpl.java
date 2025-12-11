@@ -41,9 +41,9 @@ public class UserServiceImpl implements UserService {
     private final RedisUtil redisUtil;
     private final EmailService emailService;
 
-    // 校园IP前缀（配置文件读取）
-    @Value("${campus.ip-prefix}")
-    private String campusIpPrefix;
+    // 校园IP前缀（配置文件读取，支持多个前缀用逗号分隔）
+    @Value("${campus.ip-prefixes}")
+    private String campusIpPrefixes;
 
     // 密码加密器
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
@@ -84,8 +84,19 @@ public class UserServiceImpl implements UserService {
                            clientIp.equals("0:0:0:0:0:0:0:1") || 
                            clientIp.equals("localhost");
         
-        if (!isLocalIp && !clientIp.startsWith(campusIpPrefix)) {
-            throw new BusinessException("仅支持校园IP注册，当前IP: " + clientIp + "，要求前缀: " + campusIpPrefix);
+        // 支持多个IP前缀校验
+        if (!isLocalIp) {
+            String[] prefixes = campusIpPrefixes.split(",");
+            boolean allowed = false;
+            for (String prefix : prefixes) {
+                if (clientIp.startsWith(prefix.trim())) {
+                    allowed = true;
+                    break;
+                }
+            }
+            if (!allowed) {
+                throw new BusinessException("仅支持校园IP注册，当前IP: " + clientIp + "，允许的前缀: " + campusIpPrefixes);
+            }
         }
         
         if (isLocalIp) {
