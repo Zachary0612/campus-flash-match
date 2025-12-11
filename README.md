@@ -1,13 +1,3 @@
- {
-      '/api': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-        pathRewrite: {'^/api' : ''}
-      }
-    }
-  }
-})
-
 # 🎓 校园闪配 · Campus Flash Match
 
 > 校园拼单 / 约伴 / 信用社交平台 · Spring Boot + Vue 3 全栈实现
@@ -91,9 +81,11 @@ campus-flash-match
 ├─ src/                     # Spring Boot 后端
 ├─ frontend/                # Vue 3 + Vite 前端
 ├─ docs/                    # 详细文档（架构 / 接口 / 指南）
-├─ start-backend.cmd        # Windows 启动后端
-├─ start-frontend.cmd       # Windows 启动前端
-├─ start-all.ps1            # 一键启动脚本（前后端 + 浏览器）
+├─ scripts/                 # 启动脚本
+│   ├─ start-backend.cmd    # Windows 启动后端
+│   ├─ start-frontend.cmd   # Windows 启动前端
+│   └─ start-all.ps1        # 一键启动脚本
+├─ Dockerfile               # Docker 容器化配置
 ├─ pom.xml                  # Maven 配置
 └─ README.md                # 本文件
 ```
@@ -119,13 +111,13 @@ campus-flash-match
 
 ```powershell
 # 后端
-start-backend.cmd
+.\scripts\start-backend.cmd
 
 # 前端
-start-frontend.cmd
+.\scripts\start-frontend.cmd
 
 # 一键启动（后端 + 前端 + 浏览器）
-.\start-all.ps1
+.\scripts\start-all.ps1
 ```
 
 ### 方式 2：手动启动（用于开发）
@@ -186,8 +178,7 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
-        changeOrigin: true,
-        pathRewrite: {'^/api' : ''}
+        changeOrigin: true
       }
     }
   }

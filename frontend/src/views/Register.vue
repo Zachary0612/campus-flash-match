@@ -48,7 +48,7 @@
           <el-input
             v-model="registerForm.password"
             type="password"
-            placeholder="请输入密码（至少6位）"
+            placeholder="请输入密码（8-20位，含字母、数字、特殊符号）"
             size="large"
             :prefix-icon="Lock"
             show-password
@@ -141,6 +141,31 @@ const registerForm = reactive({
   verifyCode: ''
 })
 
+// 密码强度验证
+const validatePassword = (rule, value, callback) => {
+  if (!value) {
+    callback(new Error('请输入密码'))
+    return
+  }
+  if (value.length < 8 || value.length > 20) {
+    callback(new Error('密码长度必须在8-20位之间'))
+    return
+  }
+  if (!/[a-zA-Z]/.test(value)) {
+    callback(new Error('密码必须包含至少一个字母'))
+    return
+  }
+  if (!/[0-9]/.test(value)) {
+    callback(new Error('密码必须包含至少一个数字'))
+    return
+  }
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?~`]/.test(value)) {
+    callback(new Error('密码必须包含至少一个特殊符号'))
+    return
+  }
+  callback()
+}
+
 const validateConfirmPassword = (rule, value, callback) => {
   if (value === '') {
     callback(new Error('请再次输入密码'))
@@ -164,8 +189,7 @@ const rules = {
     { type: 'email', message: '邮箱格式不正确', trigger: ['blur', 'change'] }
   ],
   password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
+    { required: true, validator: validatePassword, trigger: 'blur' }
   ],
   confirmPassword: [
     { required: true, validator: validateConfirmPassword, trigger: 'blur' }

@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 /**
  * 用户模块Service实现类
@@ -74,6 +75,9 @@ public class UserServiceImpl implements UserService {
         if (verifyCode == null || verifyCode.isBlank()) {
             throw new BusinessException("验证码不能为空");
         }
+
+        // 密码强度校验
+        validatePassword(password);
 
         // 1. 校园IP校验（开发环境允许本地IP）
         boolean isLocalIp = clientIp.equals("127.0.0.1") || 
@@ -353,5 +357,37 @@ public class UserServiceImpl implements UserService {
     @Override
     public SysUser getUserById(Long userId) {
         return sysUserMapper.selectById(userId);
+    }
+
+    /**
+     * 密码强度校验
+     * 要求：8-20位，必须包含字母、数字和特殊符号
+     */
+    private void validatePassword(String password) {
+        if (password == null || password.isBlank()) {
+            throw new BusinessException("密码不能为空");
+        }
+        
+        int minLength = 8;
+        int maxLength = 20;
+        
+        if (password.length() < minLength || password.length() > maxLength) {
+            throw new BusinessException("密码长度必须在" + minLength + "-" + maxLength + "位之间");
+        }
+        
+        // 检查是否包含字母
+        if (!Pattern.compile("[a-zA-Z]").matcher(password).find()) {
+            throw new BusinessException("密码必须包含至少一个字母");
+        }
+        
+        // 检查是否包含数字
+        if (!Pattern.compile("[0-9]").matcher(password).find()) {
+            throw new BusinessException("密码必须包含至少一个数字");
+        }
+        
+        // 检查是否包含特殊符号
+        if (!Pattern.compile("[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?~`]").matcher(password).find()) {
+            throw new BusinessException("密码必须包含至少一个特殊符号（如 !@#$%^&*()_+-=[]{}|;':\",./<>?~`）");
+        }
     }
 }
