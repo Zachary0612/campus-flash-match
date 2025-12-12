@@ -23,7 +23,7 @@ export function createEvent(data) {
 /**
  * 查询附近事件
  */
-export function getNearbyEvents(eventType, radius = 1000) {
+export function getNearbyEvents(eventType, radius = 3000) {
   // 构建参数对象
   const params = { radius }
   

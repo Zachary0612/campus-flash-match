@@ -13,11 +13,13 @@ import com.campus.service.ProfileService;
 import com.campus.service.FollowService;
 import com.campus.vo.UserProfileVO;
 import com.campus.vo.UserStatisticsVO;
+import com.campus.repository.EventCacheRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 /**
  * 用户个人资料Service实现类
@@ -42,6 +44,9 @@ public class ProfileServiceImpl implements ProfileService {
 
     @Autowired
     private FollowService followService;
+
+    @Autowired
+    private EventCacheRepository eventCacheRepository;
 
     @Override
     public UserProfileVO getUserProfile(Long userId, Long viewerId) {
@@ -76,6 +81,20 @@ public class ProfileServiceImpl implements ProfileService {
         } else {
             vo.setIsFollowed(false);
         }
+        
+        // 解析扩展元数据
+        if (user.getExtMeta() != null && !user.getExtMeta().isBlank()) {
+            try {
+                java.util.Map<String, Object> extMeta = com.alibaba.fastjson.JSON.parseObject(
+                    user.getExtMeta(), 
+                    new com.alibaba.fastjson.TypeReference<java.util.Map<String, Object>>() {}
+                );
+                vo.setExtMeta(extMeta);
+            } catch (Exception e) {
+                // 解析失败时忽略
+                vo.setExtMeta(null);
+            }
+        }
 
         return vo;
     }
@@ -105,6 +124,29 @@ public class ProfileServiceImpl implements ProfileService {
         }
         if (dto.getInterests() != null) {
             user.setInterests(dto.getInterests());
+        }
+        
+        // 处理地图位置
+        if (dto.getMapLocation() != null) {
+            try {
+                // 将 mapLocation 转换为 JSON 字符串并保存到 extMeta
+                com.alibaba.fastjson.JSONObject extMeta = new com.alibaba.fastjson.JSONObject();
+                if (user.getExtMeta() != null && !user.getExtMeta().isBlank()) {
+                    extMeta = com.alibaba.fastjson.JSON.parseObject(user.getExtMeta());
+                }
+                extMeta.put("campusLocation", dto.getMapLocation());
+                user.setExtMeta(com.alibaba.fastjson.JSON.toJSONString(extMeta));
+                
+                // 同步到Redis，用于附近事件查询
+                Map<String, Object> mapLocation = dto.getMapLocation();
+                if (mapLocation.containsKey("lng") && mapLocation.containsKey("lat")) {
+                    double lng = ((Number) mapLocation.get("lng")).doubleValue();
+                    double lat = ((Number) mapLocation.get("lat")).doubleValue();
+                    eventCacheRepository.saveUserLocation(userId, lng, lat);
+                }
+            } catch (Exception e) {
+                throw new BusinessException("地图位置数据格式错误");
+            }
         }
 
         user.setUpdateTime(LocalDateTime.now());

@@ -55,14 +55,27 @@
             <el-icon class="mr-2 text-primary"><Place /></el-icon>
             附近事件
           </span>
-          <div class="flex items-center gap-4">
-            <el-select v-model="eventType" @change="loadNearbyEvents" size="default" class="glass-select" style="width: 120px">
+          <div class="flex items-center gap-3">
+            <el-input
+              v-model="searchKeyword"
+              placeholder="搜索事件标题..."
+              clearable
+              class="glass-input"
+              style="width: 200px"
+              @keyup.enter="handleSearch"
+              @clear="handleSearch"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+            <el-select v-model="eventType" @change="handleSearch" size="default" class="glass-select" style="width: 100px">
               <el-option label="全部" value="all" />
               <el-option label="拼单" value="group_buy" />
               <el-option label="约伴" value="meetup" />
               <el-option label="信标" value="beacon" />
             </el-select>
-            <el-button circle @click="loadNearbyEvents" :loading="loading" class="!bg-white/50 !border-white/50 hover:!bg-white/80">
+            <el-button circle @click="handleSearch" :loading="loading" class="!bg-white/50 !border-white/50 hover:!bg-white/80">
               <el-icon><Refresh /></el-icon>
             </el-button>
           </div>
@@ -146,6 +159,12 @@
                 <span class="font-medium">{{ getCountdown(event) }}</span>
               </div>
             </div>
+            
+            <!-- 集合地点 -->
+            <div v-if="getEventLocation(event)" class="mb-3 flex items-start bg-blue-50/80 px-3 py-2 rounded-lg text-sm">
+              <el-icon class="mr-2 mt-0.5 text-blue-500"><Location /></el-icon>
+              <span class="text-blue-700 font-medium line-clamp-1">{{ getEventLocation(event) }}</span>
+            </div>
 
             <p v-if="event.description" class="event-desc text-gray-600 text-sm mb-4 line-clamp-2 h-10">
               {{ event.description }}
@@ -193,9 +212,10 @@
     <el-dialog
       v-model="createDialogVisible"
       :title="dialogTitle"
-      width="500px"
+      :width="locationMode === 'map' ? '650px' : '500px'"
       class="custom-dialog rounded-2xl overflow-hidden"
       destroy-on-close
+      top="5vh"
     >
       <el-form :model="eventForm" :rules="eventRules" ref="eventFormRef" label-width="100px" class="pt-4">
         <el-form-item label="事件标题" prop="title">
@@ -211,15 +231,36 @@
           <span class="ml-2 text-gray-500">分钟</span>
         </el-form-item>
         
-        <el-form-item label="校园点位" prop="pointId">
-          <el-select v-model="eventForm.pointId" placeholder="请选择集合点位" class="w-full custom-select">
-            <el-option 
-              v-for="point in campusPoints" 
-              :key="point.id" 
-              :label="point.pointName" 
-              :value="point.id" 
+        <el-form-item label="集合地点">
+          <div class="w-full">
+            <el-radio-group v-model="locationMode" size="small" class="mb-3">
+              <el-radio-button label="point">选择点位</el-radio-button>
+              <el-radio-button label="map">地图选点</el-radio-button>
+            </el-radio-group>
+            
+            <!-- 点位选择模式 -->
+            <el-select 
+              v-if="locationMode === 'point'"
+              v-model="eventForm.pointId" 
+              placeholder="请选择集合点位" 
+              class="w-full custom-select"
+            >
+              <el-option 
+                v-for="point in campusPoints" 
+                :key="point.id" 
+                :label="point.pointName" 
+                :value="point.id" 
+              />
+            </el-select>
+            
+            <!-- 地图选点模式 -->
+            <MapPicker 
+              v-else
+              v-model:location="eventForm.location"
+              height="280px"
+              @change="handleEventLocationChange"
             />
-          </el-select>
+          </div>
         </el-form-item>
 
         <el-form-item label="事件说明">
@@ -357,11 +398,12 @@
   import { ElMessage } from 'element-plus'
   import dayjs from 'dayjs'
   import Layout from '@/components/Layout.vue'
+  import MapPicker from '@/components/MapPicker.vue'
   import { getNearbyEvents, createEvent, joinEvent } from '@/api/event'
   import { getCampusPoints } from '@/api/user'
   import { publishBeacon } from '@/api/beacon'
   import { uploadFile } from '@/api/file'
-  import { ShoppingCart, UserFilled, LocationInformation, Refresh, Loading, DocumentDelete, User, Clock, Plus, Lightning, Place, Location, VideoPlay, InfoFilled, Timer } from '@element-plus/icons-vue'
+  import { ShoppingCart, UserFilled, LocationInformation, Refresh, Loading, DocumentDelete, User, Clock, Plus, Lightning, Place, Location, VideoPlay, InfoFilled, Timer, Search } from '@element-plus/icons-vue'
 
   const router = useRouter()
 
@@ -372,6 +414,7 @@
   const createLoading = ref(false)
   const beaconLoading = ref(false)
   const eventType = ref('all')
+  const searchKeyword = ref('')
   const nearbyEvents = ref([])
   const campusPoints = ref([])
 
@@ -395,7 +438,8 @@
     pointId: null,
     description: '',
     mediaUrls: [],
-    extMeta: {}
+    extMeta: {},
+    location: null
   })
 
   const beaconForm = reactive({
@@ -405,6 +449,24 @@
     description: '',
     mediaUrls: []
   })
+
+  // 位置选择模式
+  const locationMode = ref('point')
+
+  // 处理地图选点位置变化
+  const handleEventLocationChange = (location) => {
+    if (location) {
+      // 将地图选择的位置存储到 extMeta 中
+      eventForm.extMeta = {
+        ...eventForm.extMeta,
+        mapLocation: {
+          lng: location.lng,
+          lat: location.lat,
+          address: location.address
+        }
+      }
+    }
+  }
 
   const eventRules = {
     title: [{ required: true, message: '请输入事件标题', trigger: 'blur' }],
@@ -444,7 +506,17 @@
       const res = await getNearbyEvents(eventTypeParam)
       console.log('附近事件响应:', res)
       if (res.code === 200) {
-        nearbyEvents.value = res.data || []
+        let events = res.data || []
+        // 前端搜索过滤
+        if (searchKeyword.value.trim()) {
+          const keyword = searchKeyword.value.trim().toLowerCase()
+          events = events.filter(event => 
+            event.title?.toLowerCase().includes(keyword) ||
+            event.description?.toLowerCase().includes(keyword) ||
+            event.ownerNickname?.toLowerCase().includes(keyword)
+          )
+        }
+        nearbyEvents.value = events
         console.log('设置nearbyEvents:', nearbyEvents.value)
       }
     } catch (error) {
@@ -452,6 +524,10 @@
     } finally {
       loading.value = false
     }
+  }
+
+  const handleSearch = () => {
+    loadNearbyEvents()
   }
 
   const loadCampusPoints = async () => {
@@ -492,23 +568,41 @@
   const handleCreateEvent = async () => {
     if (!eventFormRef.value) return
     
-    await eventFormRef.value.validate(async (valid) => {
-      if (valid) {
-        createLoading.value = true
-        try {
-          const res = await createEvent(eventForm)
-          if (res.code === 200) {
-            ElMessage.success('事件创建成功')
-            createDialogVisible.value = false
-            loadNearbyEvents()
-          }
-        } catch (error) {
-          console.error('创建事件失败:', error)
-        } finally {
-          createLoading.value = false
-        }
+    // 地图选点模式下验证是否选择了位置
+    if (locationMode.value === 'map') {
+      if (!eventForm.location) {
+        ElMessage.warning('请在地图上选择集合地点')
+        return
       }
-    })
+    } else {
+      // 点位模式下验证是否选择了点位
+      if (!eventForm.pointId) {
+        ElMessage.warning('请选择校园点位')
+        return
+      }
+    }
+    
+    // 验证标题
+    if (!eventForm.title?.trim()) {
+      ElMessage.warning('请输入事件标题')
+      return
+    }
+    
+    console.log('提交事件数据:', JSON.parse(JSON.stringify(eventForm)))
+
+    createLoading.value = true
+    try {
+      const res = await createEvent(eventForm)
+      if (res.code === 200) {
+        ElMessage.success('事件创建成功')
+        createDialogVisible.value = false
+        loadNearbyEvents()
+      }
+    } catch (error) {
+      console.error('创建事件失败:', error)
+    } finally {
+      createLoading.value = false
+    }
   }
 
   const handlePublishBeacon = async () => {
@@ -583,6 +677,18 @@
 
   const formatTime = (time) => {
     return dayjs(time).format('MM-DD HH:mm')
+  }
+
+  const getEventLocation = (event) => {
+    // 优先使用地图选点的地址
+    if (event.extMeta?.mapLocation?.address) {
+      return event.extMeta.mapLocation.address
+    }
+    // 否则使用点位名称
+    if (event.pointName) {
+      return event.pointName
+    }
+    return null
   }
 
   const isVideo = (url) => {
@@ -770,5 +876,23 @@
   :deep(.glass-select .el-input__wrapper.is-focus) {
     background-color: white;
     box-shadow: 0 0 0 1px var(--el-color-primary);
+  }
+
+  /* Glass input customization */
+  :deep(.glass-input .el-input__wrapper) {
+    background-color: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: none;
+    border-radius: 8px;
+  }
+  
+  :deep(.glass-input .el-input__wrapper.is-focus) {
+    background-color: white;
+    box-shadow: 0 0 0 1px var(--el-color-primary);
+  }
+  
+  :deep(.glass-input .el-input__wrapper:hover) {
+    background-color: rgba(255, 255, 255, 0.8);
   }
 </style>

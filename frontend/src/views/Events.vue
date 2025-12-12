@@ -198,7 +198,7 @@
                         <div class="flex justify-between"><span>加入:</span> <span>{{ formatTime(participant.joinTime).split(' ')[1] }}</span></div>
                       </div>
                       <el-button 
-                        v-if="participant.userId && userStore?.userId && !participant.owner && participant.userId !== userStore.userId"
+                        v-if="participant.userId && userStore?.userId && participant.userId !== userStore.userId"
                         type="primary" 
                         size="small" 
                         plain
@@ -384,8 +384,9 @@ const getStatusTag = (status) => {
     active: 'success',
     pending_confirm: 'warning',
     full: 'warning',
-    settled: 'info',
-    expired: 'danger'
+    settled: 'success',
+    completed: 'success',
+    expired: 'info'
   }
   return map[status] || 'info'
 }
@@ -395,8 +396,9 @@ const getStatusName = (status) => {
     active: '进行中',
     pending_confirm: '待确认',
     full: '已满员',
-    settled: '已结算',
-    expired: '已过期'
+    settled: '已完成',
+    completed: '已完成',
+    expired: '过期失败'
   }
   return map[status] || status
 }

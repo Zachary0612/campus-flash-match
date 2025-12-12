@@ -89,6 +89,17 @@
             </div>
           </div>
 
+          <!-- 集合地点 -->
+          <div v-if="eventLocation" class="mb-6 bg-blue-50/80 border border-blue-100 rounded-xl p-4">
+            <div class="flex items-start">
+              <el-icon class="mr-3 mt-1 text-blue-500 text-xl"><Location /></el-icon>
+              <div class="flex-1">
+                <div class="text-sm font-semibold text-blue-700 mb-1">集合地点</div>
+                <div class="text-blue-900 font-medium">{{ eventLocation }}</div>
+              </div>
+            </div>
+          </div>
+
           <!-- 事件信息 -->
           <div class="grid grid-cols-4 gap-6 bg-white/40 rounded-xl p-6">
             <div class="text-center">
@@ -157,11 +168,11 @@
               </div>
             </div>
             
-            <!-- 实时聊天区域（仅参与者可见） -->
+            <!-- 即时交流（仅参与者可见） -->
             <div v-if="isJoined || isOwner" class="glass rounded-2xl p-6 mt-6 shadow-lg backdrop-blur-lg bg-white/30 border-white/40 animate-slide-up" style="animation-delay: 0.2s">
               <h3 class="font-bold text-gray-800 mb-4 flex items-center">
                 <el-icon class="mr-2 text-orange-500"><ChatLineSquare /></el-icon>
-                实时聊天
+                即时交流
                 <span class="ml-2 text-xs text-gray-400">(仅参与者可见)</span>
               </h3>
               
@@ -208,8 +219,44 @@
             </div>
           </el-col>
 
-          <!-- 右侧：评论区 -->
+          <!-- 右侧：路线导航和评论区 -->
           <el-col :span="16">
+            <!-- 路线导航（仅参与者可见） -->
+            <div v-if="(isJoined || isOwner) && destinationLocation" class="glass rounded-2xl p-6 mb-6 shadow-lg backdrop-blur-lg bg-white/30 border-white/40 animate-slide-up" style="animation-delay: 0.18s">
+              <h3 class="font-bold text-gray-800 mb-4 flex items-center justify-between">
+                <div class="flex items-center">
+                  <el-icon class="mr-2 text-green-500"><Position /></el-icon>
+                  前往集合点
+                </div>
+                <el-button 
+                  v-if="currentLocation" 
+                  size="small" 
+                  @click="getCurrentLocation" 
+                  :loading="gettingLocation"
+                  text
+                >
+                  <el-icon class="mr-1"><Aim /></el-icon>
+                  重新定位
+                </el-button>
+              </h3>
+              <div v-if="!currentLocation" class="text-center py-8">
+                <el-button type="primary" @click="getCurrentLocation" :loading="gettingLocation" size="large">
+                  <el-icon class="mr-2"><Aim /></el-icon>
+                  获取我的位置
+                </el-button>
+                <p class="text-sm text-gray-400 mt-3">
+                  {{ userStore.isLoggedIn ? '未绑定位置，点击获取当前位置' : '获取位置后可查看导航路线' }}
+                </p>
+              </div>
+              <RouteMap 
+                v-else
+                :origin="currentLocation"
+                :destination="destinationLocation"
+                height="500px"
+              />
+            </div>
+            
+            <!-- 评论区 -->
             <div class="glass rounded-2xl p-6 shadow-lg backdrop-blur-lg bg-white/30 border-white/40 animate-slide-up" style="animation-delay: 0.2s">
               <h3 class="font-bold text-gray-800 mb-4 flex items-center">
                 <el-icon class="mr-2 text-blue-500"><ChatDotRound /></el-icon>
@@ -312,16 +359,19 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import Layout from '@/components/Layout.vue'
+import RouteMap from '@/components/RouteMap.vue'
 import { useUserStore } from '@/stores/user'
 import { getEventDetail, joinEvent, quitEvent, cancelEvent, confirmEventCompletion, getConfirmationStatus } from '@/api/event'
 import { addFavorite, removeFavorite, checkFavorite } from '@/api/favorite'
 import { getEventComments, addComment, likeComment, getCommentCount } from '@/api/comment'
 import { getChatMessages } from '@/api/chat'
+import { getMyProfile } from '@/api/profile'
 import { useWebSocketStore } from '@/stores/websocket'
 import { 
   Loading, Star, StarFilled, User, UserFilled, ChatDotRound, 
-  Pointer, Warning, ChatLineSquare, Check, Bell 
+  Pointer, Warning, ChatLineSquare, Check, Bell, Position, Aim, Location 
 } from '@element-plus/icons-vue'
+import { loadAMap } from '@/utils/mapLoader'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import 'dayjs/locale/zh-cn'
@@ -363,6 +413,165 @@ const confirmationStatus = ref({
   totalCount: 0,
   currentUserConfirmed: false
 })
+
+// 路线导航相关
+const currentLocation = ref(null)
+const gettingLocation = ref(false)
+const destinationLocation = computed(() => {
+  if (!event.value) return null
+  
+  // 优先使用地图选点的位置
+  if (event.value.extMeta?.mapLocation) {
+    return {
+      lng: event.value.extMeta.mapLocation.lng,
+      lat: event.value.extMeta.mapLocation.lat,
+      address: event.value.extMeta.mapLocation.address || event.value.pointName || '集合点'
+    }
+  }
+  
+  // 使用校园点位的坐标（如果有）
+  if (event.value.pointLng && event.value.pointLat) {
+    return {
+      lng: event.value.pointLng,
+      lat: event.value.pointLat,
+      address: event.value.pointName || '集合点'
+    }
+  }
+  
+  // 默认位置（可以设置为校园中心）
+  if (event.value.pointName) {
+    // 如果只有点位名称，使用默认坐标
+    return {
+      lng: 116.397428,
+      lat: 39.90923,
+      address: event.value.pointName
+    }
+  }
+  
+  return null
+})
+
+// 集合地点文本显示
+const eventLocation = computed(() => {
+  if (!event.value) return null
+  
+  // 优先使用地图选点的地址
+  if (event.value.extMeta?.mapLocation?.address) {
+    return event.value.extMeta.mapLocation.address
+  }
+  
+  // 否则使用点位名称
+  if (event.value.pointName) {
+    return event.value.pointName
+  }
+  
+  return null
+})
+
+// 注：已从 mapLoader.js 导入 loadAMap 统一加载函数
+
+// 加载用户绑定的位置
+const loadUserBindLocation = async () => {
+  try {
+    const res = await getMyProfile()
+    if (res.code === 200 && res.data.extMeta?.campusLocation) {
+      const location = res.data.extMeta.campusLocation
+      if (location.lng && location.lat) {
+        currentLocation.value = {
+          lng: location.lng,
+          lat: location.lat,
+          address: location.address || '我的位置'
+        }
+        console.log('已加载用户绑定位置:', currentLocation.value)
+      }
+    }
+  } catch (error) {
+    console.error('加载用户绑定位置失败:', error)
+  }
+}
+
+// 使用高德地图定位（国内更可靠）
+const getCurrentLocation = () => {
+  gettingLocation.value = true
+  ElMessage.info('正在获取位置信息，请稍候...')
+  
+  // 动态加载高德地图API
+  if (!window.AMap) {
+    ElMessage.error('地图服务未加载，请刷新页面重试')
+    gettingLocation.value = false
+    return
+  }
+  
+  // 1. 尝试使用高精度定位
+  window.AMap.plugin('AMap.Geolocation', () => {
+    const geolocation = new window.AMap.Geolocation({
+      enableHighAccuracy: true,
+      timeout: 5000, // 缩短超时时间到5秒
+      position: 'RB',
+      offset: [10, 20],
+      zoomToAccuracy: true,
+      noIpLocate: 0 // 允许AMap内部尝试IP定位
+    })
+    
+    geolocation.getCurrentPosition((status, result) => {
+      if (status === 'complete') {
+        // 定位成功
+        handleLocationSuccess(result)
+      } else {
+        console.warn('高精度定位失败，尝试CitySearch IP定位:', result)
+        // 2. 如果高精度定位失败，尝试使用CitySearch插件
+        tryIpLocation()
+      }
+    })
+  })
+}
+
+// IP定位作为备选方案
+const tryIpLocation = () => {
+  window.AMap.plugin('AMap.CitySearch', () => {
+    const citySearch = new window.AMap.CitySearch()
+    citySearch.getLocalCity((status, result) => {
+      if (status === 'complete' && result.info === 'OK') {
+        // CitySearch 成功（通常只返回城市矩形bounds）
+        gettingLocation.value = false
+        console.log('CitySearch定位成功:', result)
+        ElMessage.warning('无法获取精确位置，已切换到当前城市中心')
+        
+        // 由于CitySearch没有直接返回lng/lat中心点，我们需要计算bounds中心或使用默认逻辑
+        // 这里简单处理，如果CitySearch成功，我们尝试获取bounds的中心
+        // 但为了稳妥，这里直接回退到默认校园位置，因为城市中心离学校太远也没意义
+        useDefaultLocation('定位精度不足，已使用默认校园位置')
+      } else {
+        console.warn('IP定位也失败:', result)
+        // 3. 所有定位都失败，使用默认位置
+        useDefaultLocation('定位失败，已使用默认校园位置')
+      }
+    })
+  })
+}
+
+// 使用默认位置（西南大学）
+const useDefaultLocation = (msg) => {
+  gettingLocation.value = false
+  currentLocation.value = {
+    lng: 106.419704,
+    lat: 29.817324,
+    address: '西南大学(默认位置)'
+  }
+  ElMessage.warning(msg || '已切换到默认位置')
+}
+
+// 处理定位成功
+const handleLocationSuccess = (result) => {
+  gettingLocation.value = false
+  currentLocation.value = {
+    lng: result.position.lng,
+    lat: result.position.lat,
+    address: result.formattedAddress || '我的位置'
+  }
+  ElMessage.success('定位成功')
+  console.log('定位成功:', currentLocation.value)
+}
 
 const eventId = computed(() => route.params.eventId)
 const isOwner = computed(() => event.value?.ownerId === userStore.userId)
@@ -754,9 +963,22 @@ const initChat = async () => {
 }
 
 onMounted(async () => {
+  // 预加载高德地图API（用于定位功能）
+  try {
+    await loadAMap()
+  } catch (error) {
+    console.error('加载地图服务失败:', error)
+  }
+  
   loadEventDetail()
   loadComments()
   loadCommentCount()
+  
+  // 加载用户绑定的位置（用于路线导航）
+  if (userStore.isLoggedIn) {
+    loadUserBindLocation()
+  }
+  
   if (userStore.isLoggedIn) {
     checkFavoriteStatus()
     // 加载聊天记录并初始化 WebSocket

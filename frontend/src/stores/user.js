@@ -97,6 +97,14 @@ export const useUserStore = defineStore('user', () => {
     }
   }
   
+  // 设置昵称
+  function setNickname(newNickname) {
+    if (userInfo.value) {
+      userInfo.value.nickname = newNickname
+      localStorage.setItem('userInfo', JSON.stringify(userInfo.value))
+    }
+  }
+  
   // 检查token是否有效
   function checkTokenValidity() {
     if (!token.value) {
@@ -141,6 +149,7 @@ export const useUserStore = defineStore('user', () => {
     logout,
     updateCreditScore,
     setAvatar,
+    setNickname,
     checkTokenValidity
   }
 })

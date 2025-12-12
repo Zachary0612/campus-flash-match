@@ -36,4 +36,9 @@ public class UserProfileUpdateDTO {
      * 兴趣标签（逗号分隔）
      */
     private String interests;
+    
+    /**
+     * 地图选择的位置（JSON格式，包含 lng, lat, address）
+     */
+    private java.util.Map<String, Object> mapLocation;
 }

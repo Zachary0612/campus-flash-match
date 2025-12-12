@@ -68,6 +68,15 @@ public class EventCacheRepository {
     }
 
     /**
+     * 保存用户位置
+     */
+    public void saveUserLocation(Long userId, double longitude, double latitude) {
+        String key = "user:location:";
+        redisUtil.geoAdd(key, longitude, latitude, userId.toString());
+        System.out.println("保存用户位置成功，userId: " + userId + ", 经度: " + longitude + ", 纬度: " + latitude);
+    }
+
+    /**
      * 查询附近事件（GEO半径搜索）
      */
     public GeoResults<RedisGeoCommands.GeoLocation<Object>> findNearbyEvents(

@@ -19,8 +19,8 @@
       <div class="glass rounded-2xl p-4 mb-6 shadow-lg backdrop-blur-lg bg-white/30 border-white/40 animate-slide-up" style="animation-delay: 0.1s">
         <el-radio-group v-model="currentType" @change="loadNotifications">
           <el-radio-button label="">全部</el-radio-button>
-          <el-radio-button label="event_join">事件加入</el-radio-button>
-          <el-radio-button label="event_full">事件满员</el-radio-button>
+          <el-radio-button label="event_joined">事件加入</el-radio-button>
+          <el-radio-button label="event_pending_confirm">事件待确认</el-radio-button>
           <el-radio-button label="event_settle">事件结算</el-radio-button>
           <el-radio-button label="follow">关注</el-radio-button>
           <el-radio-button label="comment">评论</el-radio-button>
@@ -177,8 +177,8 @@ const handleMarkAllRead = async () => {
 // 获取类型图标
 const getTypeIcon = (type) => {
   const icons = {
-    'event_join': UserFilled,
-    'event_full': Check,
+    'event_joined': UserFilled,
+    'event_pending_confirm': Check,
     'event_settle': Star,
     'follow': UserFilled,
     'comment': ChatDotRound,
@@ -191,8 +191,8 @@ const getTypeIcon = (type) => {
 // 获取类型图标样式
 const getTypeIconClass = (type) => {
   const classes = {
-    'event_join': 'bg-blue-100 text-blue-500',
-    'event_full': 'bg-green-100 text-green-500',
+    'event_joined': 'bg-blue-100 text-blue-500',
+    'event_pending_confirm': 'bg-green-100 text-green-500',
     'event_settle': 'bg-purple-100 text-purple-500',
     'follow': 'bg-pink-100 text-pink-500',
     'comment': 'bg-yellow-100 text-yellow-600',

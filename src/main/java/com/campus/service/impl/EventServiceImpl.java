@@ -106,10 +106,33 @@ public class EventServiceImpl implements EventService {
             throw new BusinessException("信用分低于60分，无法发起事件");
         }
 
-        // 2. 校验校园点位
-        CampusPoint point = campusPointMapper.selectById(dto.getPointId());
-        if (point == null || !point.getIsValid()) {
-            throw new BusinessException("无效的校园点位");
+        // 2. 获取位置坐标（支持地图选点或校园点位）
+        Double longitude = null;
+        Double latitude = null;
+        
+        // 优先使用地图选点的位置
+        if (dto.getExtMeta() != null && dto.getExtMeta().containsKey("mapLocation")) {
+            System.out.println("检测到地图选点数据: " + dto.getExtMeta().get("mapLocation"));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> mapLocation = (Map<String, Object>) dto.getExtMeta().get("mapLocation");
+            if (mapLocation != null) {
+                longitude = Double.valueOf(mapLocation.get("lng").toString());
+                latitude = Double.valueOf(mapLocation.get("lat").toString());
+                System.out.println("解析地图坐标: lng=" + longitude + ", lat=" + latitude);
+            }
+        }
+        
+        // 如果没有地图位置，则使用校园点位
+        if (longitude == null || latitude == null) {
+            if (dto.getPointId() == null) {
+                throw new BusinessException("请选择集合地点");
+            }
+            CampusPoint point = campusPointMapper.selectById(dto.getPointId());
+            if (point == null || !point.getIsValid()) {
+                throw new BusinessException("无效的校园点位");
+            }
+            longitude = point.getLongitude();
+            latitude = point.getLatitude();
         }
 
         // 3. 校验事件类型（支持拼单/约伴/信标）
@@ -135,8 +158,8 @@ public class EventServiceImpl implements EventService {
             eventCacheRepository.saveEventLocation(
                     dto.getEventType(),
                     eventId,
-                    point.getLongitude(),
-                    point.getLatitude()
+                    longitude,
+                    latitude
             );
 
             // 6.2 存储事件详情（Hash）
@@ -196,7 +219,7 @@ public class EventServiceImpl implements EventService {
             eventHistoryMapper.insertEventHistory(eventHistory);
 
             // 6.5 推送实时通知（1公里内在线用户）
-            eventNotificationService.pushNearbyUserNotify(eventId, dto.getTitle(), point.getLongitude(), point.getLatitude());
+            eventNotificationService.pushNearbyUserNotify(eventId, dto.getTitle(), longitude, latitude);
 
         } catch (Exception e) {
             // 异常回滚：删除已存储的Redis数据
@@ -209,11 +232,38 @@ public class EventServiceImpl implements EventService {
 
     @Override
     public List<NearbyEventVO> getNearbyEvents(String eventType, Long userId, double radius) {
-        // 1. 获取用户当前位置
+        // 1. 获取用户当前位置（优先从Redis获取）
         Point userPoint = eventCacheRepository.getUserLocation(userId);
+        
+        // 1.1 如果Redis中没有，尝试从数据库extMeta中读取
+        if (userPoint == null) {
+            SysUser user = sysUserMapper.selectById(userId);
+            if (user != null && user.getExtMeta() != null && !user.getExtMeta().isBlank()) {
+                try {
+                    com.alibaba.fastjson.JSONObject extMeta = com.alibaba.fastjson.JSON.parseObject(user.getExtMeta());
+                    Object campusLocation = extMeta.get("campusLocation");
+                    if (campusLocation instanceof java.util.Map) {
+                        @SuppressWarnings("unchecked")
+                        java.util.Map<String, Object> location = (java.util.Map<String, Object>) campusLocation;
+                        if (location.containsKey("lng") && location.containsKey("lat")) {
+                            double lng = ((Number) location.get("lng")).doubleValue();
+                            double lat = ((Number) location.get("lat")).doubleValue();
+                            // 缓存到Redis
+                            eventCacheRepository.saveUserLocation(userId, lng, lat);
+                            userPoint = new Point(lng, lat);
+                        }
+                    }
+                } catch (Exception e) {
+                    System.err.println("解析用户extMeta失败: " + e.getMessage());
+                }
+            }
+        }
+        
+        // 1.2 如果仍然没有位置信息，提示用户绑定
         if (userPoint == null) {
             throw new BusinessException("请先绑定校园位置");
         }
+        
         double userLon = userPoint.getX();
         double userLat = userPoint.getY();
 

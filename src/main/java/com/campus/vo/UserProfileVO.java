@@ -92,4 +92,9 @@ public class UserProfileVO {
      * 是否已关注（查看他人主页时使用）
      */
     private Boolean isFollowed;
+    
+    /**
+     * 扩展元数据（JSON格式，包含地图位置等信息）
+     */
+    private java.util.Map<String, Object> extMeta;
 }

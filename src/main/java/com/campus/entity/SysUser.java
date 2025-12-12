@@ -88,4 +88,9 @@ public class SysUser {
      * 兴趣标签（逗号分隔）
      */
     private String interests;
+    
+    /**
+     * 扩展元数据（JSON格式，存储地图位置等信息）
+     */
+    private String extMeta;
 }
