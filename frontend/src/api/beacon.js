@@ -11,6 +11,7 @@ export function publishBeacon(data) {
       locationDesc: data.locationDesc,
       expireMinutes: data.expireMinutes,
       pointId: data.pointId,
+      mapLocation: data.mapLocation,
       description: data.description,
       mediaUrls: data.mediaUrls
     }

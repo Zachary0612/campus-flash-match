@@ -103,24 +103,7 @@ campus-flash-match
 | Redis | 6+ | 开启持久化可避免 GEO 丢失 |
 | RabbitMQ | 3.9+ | 默认虚拟主机 `/` |
 
----
 
-## 快速开始
-
-### 方式 1：脚本一键启动（推荐）
-
-```powershell
-# 后端
-.\scripts\start-backend.cmd
-
-# 前端
-.\scripts\start-frontend.cmd
-
-# 一键启动（后端 + 前端 + 浏览器）
-.\scripts\start-all.ps1
-```
-
-### 方式 2：手动启动（用于开发）
 
 1. **启动后端**
    ```bash

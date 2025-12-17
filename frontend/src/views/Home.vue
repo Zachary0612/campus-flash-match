@@ -3,45 +3,65 @@
     <div class="home-page relative z-10">
       <!-- 快速操作区 -->
       <div class="quick-actions mb-8 animate-slide-up" style="animation-delay: 0.1s">
-        <div class="glass rounded-2xl p-6 shadow-lg backdrop-blur-lg bg-white/30 border-white/40">
-          <div class="flex items-center justify-between mb-6 border-b border-white/20 pb-4">
-            <span class="text-xl font-bold text-gray-800 flex items-center">
-              <el-icon class="mr-2 text-primary"><Lightning /></el-icon>
+        <div class="glass rounded-3xl p-8 shadow-glass backdrop-blur-xl bg-white/20 border-white/30">
+          <div class="flex items-center justify-between mb-8 border-b border-white/10 pb-4">
+            <span class="text-2xl font-black text-gray-800 flex items-center tracking-tight">
+              <div class="p-2 bg-gradient-to-tr from-yellow-400 to-orange-500 rounded-xl mr-3 shadow-lg shadow-orange-500/30">
+                <el-icon class="text-white text-xl"><Lightning /></el-icon>
+              </div>
               快速发起
             </span>
           </div>
           
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <button @click="showCreateDialog('group_buy')" class="action-card group relative overflow-hidden rounded-xl p-6 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-lg bg-gradient-to-br from-blue-500 to-blue-600">
-              <div class="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white opacity-10 rounded-full transform group-hover:scale-150 transition-transform duration-500"></div>
-              <div class="relative z-10">
-                <div class="w-12 h-12 rounded-lg bg-white/20 flex items-center justify-center mb-4 backdrop-blur-sm">
-                  <el-icon class="text-white text-2xl"><ShoppingCart /></el-icon>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <button @click="showCreateDialog('group_buy')" class="group relative overflow-hidden rounded-2xl p-8 text-left transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl bg-gradient-to-br from-blue-500 to-indigo-600 border border-white/20">
+              <div class="absolute top-0 right-0 -mt-8 -mr-8 w-40 h-40 bg-white opacity-10 rounded-full transform group-hover:scale-150 transition-transform duration-700 ease-out blur-xl"></div>
+              <div class="absolute bottom-0 left-0 -mb-8 -ml-8 w-32 h-32 bg-blue-400 opacity-20 rounded-full transform group-hover:scale-150 transition-transform duration-700 ease-out blur-xl"></div>
+              <div class="relative z-10 flex flex-col h-full justify-between">
+                <div class="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center mb-6 backdrop-blur-md shadow-inner border border-white/30 group-hover:rotate-6 transition-transform duration-300">
+                  <el-icon class="text-white text-3xl"><ShoppingCart /></el-icon>
                 </div>
-                <h3 class="text-white text-lg font-bold mb-1">发起拼单</h3>
-                <p class="text-blue-100 text-sm">寻找伙伴一起拼单购物</p>
+                <div>
+                  <h3 class="text-white text-2xl font-black mb-2 tracking-wide">发起拼单</h3>
+                  <p class="text-blue-100 text-sm font-medium leading-relaxed opacity-90">寻找伙伴一起拼单购物<br>省钱又省心</p>
+                </div>
+                <div class="mt-4 flex items-center text-white/80 text-sm font-semibold group-hover:translate-x-2 transition-transform duration-300">
+                  立即开始 <el-icon class="ml-1"><ArrowRight /></el-icon>
+                </div>
               </div>
             </button>
 
-            <button @click="showCreateDialog('meetup')" class="action-card group relative overflow-hidden rounded-xl p-6 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-lg bg-gradient-to-br from-green-500 to-emerald-600">
-              <div class="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white opacity-10 rounded-full transform group-hover:scale-150 transition-transform duration-500"></div>
-              <div class="relative z-10">
-                <div class="w-12 h-12 rounded-lg bg-white/20 flex items-center justify-center mb-4 backdrop-blur-sm">
-                  <el-icon class="text-white text-2xl"><UserFilled /></el-icon>
+            <button @click="showCreateDialog('meetup')" class="group relative overflow-hidden rounded-2xl p-8 text-left transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl bg-gradient-to-br from-emerald-500 to-teal-600 border border-white/20">
+              <div class="absolute top-0 right-0 -mt-8 -mr-8 w-40 h-40 bg-white opacity-10 rounded-full transform group-hover:scale-150 transition-transform duration-700 ease-out blur-xl"></div>
+              <div class="absolute bottom-0 left-0 -mb-8 -ml-8 w-32 h-32 bg-emerald-400 opacity-20 rounded-full transform group-hover:scale-150 transition-transform duration-700 ease-out blur-xl"></div>
+              <div class="relative z-10 flex flex-col h-full justify-between">
+                <div class="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center mb-6 backdrop-blur-md shadow-inner border border-white/30 group-hover:rotate-6 transition-transform duration-300">
+                  <el-icon class="text-white text-3xl"><UserFilled /></el-icon>
                 </div>
-                <h3 class="text-white text-lg font-bold mb-1">发起约伴</h3>
-                <p class="text-green-100 text-sm">约饭、运动、学习搭子</p>
+                <div>
+                  <h3 class="text-white text-2xl font-black mb-2 tracking-wide">发起约伴</h3>
+                  <p class="text-emerald-100 text-sm font-medium leading-relaxed opacity-90">约饭、运动、学习搭子<br>不再一个人</p>
+                </div>
+                <div class="mt-4 flex items-center text-white/80 text-sm font-semibold group-hover:translate-x-2 transition-transform duration-300">
+                  立即开始 <el-icon class="ml-1"><ArrowRight /></el-icon>
+                </div>
               </div>
             </button>
 
-            <button @click="showBeaconDialog" class="action-card group relative overflow-hidden rounded-xl p-6 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-lg bg-gradient-to-br from-orange-400 to-orange-500">
-              <div class="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white opacity-10 rounded-full transform group-hover:scale-150 transition-transform duration-500"></div>
-              <div class="relative z-10">
-                <div class="w-12 h-12 rounded-lg bg-white/20 flex items-center justify-center mb-4 backdrop-blur-sm">
-                  <el-icon class="text-white text-2xl"><LocationInformation /></el-icon>
+            <button @click="showBeaconDialog" class="group relative overflow-hidden rounded-2xl p-8 text-left transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl bg-gradient-to-br from-orange-400 to-red-500 border border-white/20">
+              <div class="absolute top-0 right-0 -mt-8 -mr-8 w-40 h-40 bg-white opacity-10 rounded-full transform group-hover:scale-150 transition-transform duration-700 ease-out blur-xl"></div>
+              <div class="absolute bottom-0 left-0 -mb-8 -ml-8 w-32 h-32 bg-orange-400 opacity-20 rounded-full transform group-hover:scale-150 transition-transform duration-700 ease-out blur-xl"></div>
+              <div class="relative z-10 flex flex-col h-full justify-between">
+                <div class="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center mb-6 backdrop-blur-md shadow-inner border border-white/30 group-hover:rotate-6 transition-transform duration-300">
+                  <el-icon class="text-white text-3xl"><LocationInformation /></el-icon>
                 </div>
-                <h3 class="text-white text-lg font-bold mb-1">发布信标</h3>
-                <p class="text-orange-100 text-sm">标记位置，等待响应</p>
+                <div>
+                  <h3 class="text-white text-2xl font-black mb-2 tracking-wide">发布信标</h3>
+                  <p class="text-orange-100 text-sm font-medium leading-relaxed opacity-90">标记位置，等待响应<br>即时互动</p>
+                </div>
+                <div class="mt-4 flex items-center text-white/80 text-sm font-semibold group-hover:translate-x-2 transition-transform duration-300">
+                  立即开始 <el-icon class="ml-1"><ArrowRight /></el-icon>
+                </div>
               </div>
             </button>
           </div>
@@ -49,133 +69,138 @@
       </div>
       
       <!-- 附近事件 -->
-      <div class="glass rounded-2xl p-6 shadow-lg backdrop-blur-lg bg-white/30 border-white/40 animate-slide-up" style="animation-delay: 0.3s">
-        <div class="flex items-center justify-between mb-6 border-b border-white/20 pb-4">
-          <span class="text-xl font-bold text-gray-800 flex items-center">
-            <el-icon class="mr-2 text-primary"><Place /></el-icon>
+      <div class="glass rounded-3xl p-8 shadow-glass backdrop-blur-xl bg-white/20 border-white/30 animate-slide-up" style="animation-delay: 0.3s">
+        <div class="flex items-center justify-between mb-8 border-b border-white/10 pb-4">
+          <span class="text-2xl font-black text-gray-800 flex items-center tracking-tight">
+            <div class="p-2 bg-gradient-to-tr from-blue-400 to-cyan-500 rounded-xl mr-3 shadow-lg shadow-blue-500/30">
+              <el-icon class="text-white text-xl"><Place /></el-icon>
+            </div>
             附近事件
           </span>
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-4">
             <el-input
               v-model="searchKeyword"
-              placeholder="搜索事件标题..."
+              placeholder="搜索感兴趣的活动..."
               clearable
-              class="glass-input"
-              style="width: 200px"
+              class="glass-input transition-all duration-300 hover:w-[280px] focus-within:w-[280px]"
+              style="width: 220px"
               @keyup.enter="handleSearch"
               @clear="handleSearch"
             >
               <template #prefix>
-                <el-icon><Search /></el-icon>
+                <el-icon class="text-gray-500"><Search /></el-icon>
               </template>
             </el-input>
-            <el-select v-model="eventType" @change="handleSearch" size="default" class="glass-select" style="width: 100px">
-              <el-option label="全部" value="all" />
+            <el-select v-model="eventType" @change="handleSearch" size="default" class="glass-select" style="width: 120px">
+              <el-option label="全部类型" value="all" />
               <el-option label="拼单" value="group_buy" />
               <el-option label="约伴" value="meetup" />
               <el-option label="信标" value="beacon" />
             </el-select>
-            <el-button circle @click="handleSearch" :loading="loading" class="!bg-white/50 !border-white/50 hover:!bg-white/80">
-              <el-icon><Refresh /></el-icon>
+            <el-button circle @click="handleSearch" :loading="loading" class="!bg-white/40 !border-white/30 hover:!bg-white/60 !shadow-sm hover:!shadow-md transition-all duration-300">
+              <el-icon class="text-gray-700"><Refresh /></el-icon>
             </el-button>
           </div>
         </div>
         
-        <div v-if="loading" class="text-center py-16">
-          <el-icon class="is-loading text-primary" :size="40"><Loading /></el-icon>
+        <div v-if="loading" class="text-center py-20">
+          <div class="inline-block p-4 rounded-full bg-white/30 backdrop-blur-md shadow-lg animate-pulse-slow">
+            <el-icon class="is-loading text-primary" :size="48"><Loading /></el-icon>
+          </div>
+          <p class="mt-4 text-gray-500 font-medium">正在寻找有趣的活动...</p>
         </div>
         
-        <div v-else-if="nearbyEvents.length === 0" class="text-center py-16 text-gray-500">
-          <div class="bg-gray-100/50 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4">
-            <el-icon :size="40" class="text-gray-400"><DocumentDelete /></el-icon>
+        <div v-else-if="nearbyEvents.length === 0" class="text-center py-24 text-gray-500">
+          <div class="bg-gray-100/30 w-32 h-32 rounded-full flex items-center justify-center mx-auto mb-6 backdrop-blur-md shadow-inner border border-white/20">
+            <el-icon :size="56" class="text-gray-400/70"><DocumentDelete /></el-icon>
           </div>
-          <p class="text-lg font-medium">暂无附近事件</p>
-          <p class="text-sm opacity-70 mt-1">快去发起第一个活动吧！</p>
-          <div class="mt-4 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg inline-block text-xs">
-             <el-icon class="mr-1 translate-y-0.5"><InfoFilled /></el-icon>
-             没看到事件？请检查<router-link to="/profile" class="underline font-bold hover:text-blue-800">个人中心</router-link>是否已绑定校园位置
+          <p class="text-xl font-bold text-gray-700">暂无附近事件</p>
+          <p class="text-base opacity-70 mt-2">这里有点冷清，快去发起第一个活动吧！</p>
+          <div class="mt-6 bg-blue-50/50 text-blue-600 px-6 py-3 rounded-xl inline-block text-sm border border-blue-100/50 backdrop-blur-sm shadow-sm">
+             <el-icon class="mr-2 translate-y-0.5"><InfoFilled /></el-icon>
+             没看到事件？请检查<router-link to="/profile" class="underline font-bold hover:text-blue-800 ml-1">个人中心</router-link>是否已绑定校园位置
           </div>
         </div>
         
-        <div v-else class="events-grid">
+        <div v-else class="events-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           <div
             v-for="(event, index) in nearbyEvents"
             :key="event.eventId"
-            class="event-card bg-white/80 backdrop-blur-sm rounded-xl p-5 border border-white/60 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer"
+            class="glass-card group rounded-2xl p-5 hover:shadow-glass-hover transition-all duration-500 cursor-pointer flex flex-col h-full border border-white/40 bg-white/40"
             :style="{ animationDelay: `${index * 0.05}s` }"
             @click="goToEventDetail(event.eventId)"
           >
-            <div class="event-header flex justify-between items-start mb-3">
+            <div class="event-header flex justify-between items-start mb-4">
               <div class="flex items-center gap-2">
-                <el-tag :type="getEventTypeTag(event.eventType)" effect="dark" size="small" class="!rounded-lg shadow-sm">
+                <el-tag :type="getEventTypeTag(event.eventType)" effect="dark" class="!rounded-lg !px-3 !h-7 !border-none shadow-md font-bold">
                   {{ getEventTypeName(event.eventType) }}
                 </el-tag>
-                <el-tag v-if="event.status === 'pending_confirm'" type="warning" size="small" effect="plain" class="!rounded-lg">
+                <el-tag v-if="event.status === 'pending_confirm'" type="warning" size="small" effect="plain" class="!rounded-lg !bg-orange-50 !border-orange-200 !text-orange-500">
                   待确认
                 </el-tag>
               </div>
-              <span class="distance bg-gray-100 px-2 py-0.5 rounded text-xs font-medium text-gray-600 flex items-center">
-                <el-icon class="mr-1"><Location /></el-icon>
+              <span class="distance bg-white/60 px-2.5 py-1 rounded-lg text-xs font-bold text-gray-600 flex items-center shadow-sm backdrop-blur-md border border-white/40">
+                <el-icon class="mr-1 text-primary"><Location /></el-icon>
                 {{ event.distance }}m
               </span>
             </div>
             
             <!-- 发起者信息 -->
-            <div class="flex items-center gap-2 mb-3">
+            <div class="flex items-center gap-3 mb-4 p-2 bg-white/30 rounded-xl backdrop-blur-sm border border-white/20 transition-colors group-hover:bg-white/50">
               <el-avatar 
-                :size="28" 
+                :size="36" 
                 :src="event.ownerAvatar" 
-                class="cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                class="cursor-pointer hover:ring-2 hover:ring-primary hover:ring-offset-2 transition-all shadow-sm"
                 @click.stop="goToUserProfile(event.ownerId)"
               >
                 {{ event.ownerNickname?.charAt(0) || '?' }}
               </el-avatar>
-              <span 
-                class="text-sm text-gray-600 hover:text-primary cursor-pointer transition-colors"
-                @click.stop="goToUserProfile(event.ownerId)"
-              >
-                {{ event.ownerNickname || '未知用户' }}
-              </span>
+              <div class="flex flex-col overflow-hidden">
+                <span 
+                  class="text-sm font-bold text-gray-800 hover:text-primary cursor-pointer transition-colors truncate"
+                  @click.stop="goToUserProfile(event.ownerId)"
+                >
+                  {{ event.ownerNickname || '未知用户' }}
+                </span>
+                <span class="text-xs text-gray-500 truncate">发布于 {{ formatTime(event.createTime) }}</span>
+              </div>
             </div>
             
-            <h3 class="event-title text-lg font-bold text-gray-800 mb-3 line-clamp-1" :title="event.title">{{ event.title }}</h3>
+            <h3 class="event-title text-xl font-black text-gray-800 mb-3 line-clamp-2 leading-tight group-hover:text-primary transition-colors" :title="event.title">{{ event.title }}</h3>
             
-            <div class="event-info flex flex-wrap gap-2 mb-4 text-sm text-gray-500">
-              <div class="info-item flex items-center bg-gray-50 px-2 py-1 rounded-md">
-                <el-icon class="mr-1 text-primary"><User /></el-icon>
-                <span :class="{'text-primary font-semibold': event.currentNum < event.targetNum}">{{ event.currentNum }}</span>
-                <span class="mx-0.5">/</span>
+            <div class="event-info flex flex-wrap gap-2 mb-4 text-xs font-medium text-gray-600">
+              <div class="info-item flex items-center bg-blue-50/50 px-2.5 py-1.5 rounded-lg border border-blue-100/30">
+                <el-icon class="mr-1.5 text-primary text-sm"><User /></el-icon>
+                <span :class="{'text-primary font-bold': event.currentNum < event.targetNum}">{{ event.currentNum }}</span>
+                <span class="mx-0.5 text-gray-400">/</span>
                 <span>{{ event.targetNum }}</span>
               </div>
-              <div class="info-item flex items-center bg-gray-50 px-2 py-1 rounded-md">
-                <el-icon class="mr-1 text-warning"><Clock /></el-icon>
-                <span>{{ formatTime(event.createTime) }}</span>
-              </div>
+              
               <div 
-                class="info-item flex items-center px-2 py-1 rounded-md"
+                class="info-item flex items-center px-2.5 py-1.5 rounded-lg border backdrop-blur-sm shadow-sm"
                 :class="getCountdownClass(event)"
               >
-                <el-icon class="mr-1"><Timer /></el-icon>
-                <span class="font-medium">{{ getCountdown(event) }}</span>
+                <el-icon class="mr-1.5 text-sm"><Timer /></el-icon>
+                <span class="font-bold tracking-tight">{{ getCountdown(event) }}</span>
               </div>
             </div>
             
             <!-- 集合地点 -->
-            <div v-if="getEventLocation(event)" class="mb-3 flex items-start bg-blue-50/80 px-3 py-2 rounded-lg text-sm">
-              <el-icon class="mr-2 mt-0.5 text-blue-500"><Location /></el-icon>
-              <span class="text-blue-700 font-medium line-clamp-1">{{ getEventLocation(event) }}</span>
+            <div v-if="getEventLocation(event)" class="mb-4 flex items-start bg-gray-50/50 px-3 py-2.5 rounded-xl text-sm border border-gray-100/50">
+              <el-icon class="mr-2 mt-0.5 text-gray-500"><LocationInformation /></el-icon>
+              <span class="text-gray-700 font-medium line-clamp-2 leading-snug">{{ getEventLocation(event) }}</span>
             </div>
 
-            <p v-if="event.description" class="event-desc text-gray-600 text-sm mb-4 line-clamp-2 h-10">
+            <p v-if="event.description" class="event-desc text-gray-600 text-sm mb-4 line-clamp-2 h-10 leading-relaxed opacity-80">
               {{ event.description }}
             </p>
-            <p v-else class="event-desc text-gray-400 text-sm mb-4 italic h-10 flex items-center">
+            <p v-else class="event-desc text-gray-400 text-sm mb-4 italic h-10 flex items-center opacity-60">
               暂无详细描述...
             </p>
 
-            <div v-if="event.mediaUrls && event.mediaUrls.length" class="media-preview grid grid-cols-3 gap-2 mb-4">
+            <div v-if="event.mediaUrls && event.mediaUrls.length" class="media-preview grid grid-cols-3 gap-2 mb-4 mt-auto">
               <template v-for="(url, mediaIndex) in event.mediaUrls.slice(0, 3)" :key="mediaIndex">
-                <div class="aspect-square rounded-lg overflow-hidden border border-gray-100 relative group cursor-pointer" @click="handlePreview({url: getMediaUrl(url)})">
+                <div class="aspect-square rounded-lg overflow-hidden border border-white/50 relative group/media cursor-pointer shadow-sm" @click="handlePreview({url: getMediaUrl(url)})">
                   <video
                     v-if="isVideo(url)"
                     :src="getMediaUrl(url)"
@@ -185,24 +210,32 @@
                     v-else
                     :src="getMediaUrl(url)"
                     alt="event media"
-                    class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    class="w-full h-full object-cover transition-transform duration-500 group-hover/media:scale-110"
                   />
-                  <div v-if="isVideo(url)" class="absolute inset-0 flex items-center justify-center bg-black/20">
-                     <el-icon class="text-white" size="20"><VideoPlay /></el-icon>
+                  <div v-if="isVideo(url)" class="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-[1px] group-hover/media:bg-black/10 transition-colors">
+                     <el-icon class="text-white drop-shadow-md" size="20"><VideoPlay /></el-icon>
                   </div>
                 </div>
               </template>
             </div>
             
-            <el-button
-              type="primary"
-              class="w-full !rounded-lg !h-10 !font-medium shadow-md hover:shadow-primary/40 transition-all"
-              :class="{'!bg-gray-300 !border-gray-300 !shadow-none': event.currentNum >= event.targetNum}"
-              @click.stop="handleJoinEvent(event.eventId)"
-              :disabled="event.currentNum >= event.targetNum"
-            >
-              {{ event.currentNum >= event.targetNum ? '已满员' : '立即参与' }}
-            </el-button>
+            <div class="mt-auto pt-2">
+              <el-button
+                type="primary"
+                class="w-full !rounded-xl !h-11 !font-bold shadow-lg shadow-blue-200/50 hover:shadow-blue-300/60 transition-all duration-300 transform active:scale-95"
+                :class="{'!bg-gray-300 !border-gray-300 !shadow-none cursor-not-allowed': event.currentNum >= event.targetNum}"
+                @click.stop="handleJoinEvent(event.eventId)"
+                :disabled="event.currentNum >= event.targetNum"
+              >
+                <div class="flex items-center justify-center gap-2">
+                  <span v-if="event.currentNum >= event.targetNum">已满员</span>
+                  <template v-else>
+                    <el-icon><Plus /></el-icon>
+                    立即参与
+                  </template>
+                </div>
+              </el-button>
+            </div>
           </div>
         </div>
       </div>
@@ -331,15 +364,40 @@
           <span class="ml-2 text-gray-500">分钟</span>
         </el-form-item>
         
-        <el-form-item label="校园点位" prop="pointId">
-          <el-select v-model="beaconForm.pointId" placeholder="请选择大概位置" class="w-full custom-select">
-            <el-option 
-              v-for="point in campusPoints" 
-              :key="point.id" 
-              :label="point.pointName" 
-              :value="point.id" 
+        <el-form-item label="位置选择">
+          <div class="w-full">
+            <el-radio-group v-model="beaconLocationMode" size="small" class="mb-3">
+              <el-radio-button label="campus">选择点位</el-radio-button>
+              <el-radio-button label="map">地图选点</el-radio-button>
+            </el-radio-group>
+            
+            <!-- 校园点位选择 -->
+            <el-select 
+              v-if="beaconLocationMode === 'campus'"
+              v-model="beaconForm.pointId" 
+              placeholder="请选择大概位置" 
+              class="w-full custom-select"
+            >
+              <el-option 
+                v-for="point in campusPoints" 
+                :key="point.id" 
+                :label="point.pointName" 
+                :value="point.id" 
+              />
+            </el-select>
+            
+            <!-- 地图选点 -->
+            <MapPicker 
+              v-else
+              v-model:location="beaconForm.mapLocation"
+              height="250px"
+              @change="handleBeaconLocationChange"
             />
-          </el-select>
+            <div v-if="beaconLocationMode === 'map' && beaconForm.mapLocation" class="mt-2 text-sm text-gray-500">
+              <el-icon class="mr-1"><Location /></el-icon>
+              {{ beaconForm.mapLocation.address || '已选择位置' }}
+            </div>
+          </div>
         </el-form-item>
         
         <el-form-item label="图片/视频">
@@ -403,7 +461,7 @@
   import { getCampusPoints } from '@/api/user'
   import { publishBeacon } from '@/api/beacon'
   import { uploadFile } from '@/api/file'
-  import { ShoppingCart, UserFilled, LocationInformation, Refresh, Loading, DocumentDelete, User, Clock, Plus, Lightning, Place, Location, VideoPlay, InfoFilled, Timer, Search } from '@element-plus/icons-vue'
+  import { ArrowRight, ShoppingCart, UserFilled, LocationInformation, Refresh, Loading, DocumentDelete, User, Clock, Plus, Lightning, Place, Location, VideoPlay, InfoFilled, Timer, Search } from '@element-plus/icons-vue'
 
   const router = useRouter()
 
@@ -447,11 +505,14 @@
     expireMinutes: 120,
     pointId: null,
     description: '',
-    mediaUrls: []
+    mediaUrls: [],
+    mapLocation: null
   })
 
   // 位置选择模式
   const locationMode = ref('point')
+  // 信标位置选择模式
+  const beaconLocationMode = ref('campus')
 
   // 处理地图选点位置变化
   const handleEventLocationChange = (location) => {
@@ -466,6 +527,11 @@
         }
       }
     }
+  }
+
+  // 处理信标地图选点位置变化
+  const handleBeaconLocationChange = (location) => {
+    beaconForm.mapLocation = location
   }
 
   const eventRules = {
@@ -561,7 +627,9 @@
     beaconForm.pointId = null
     beaconForm.description = ''
     beaconForm.mediaUrls = []
+    beaconForm.mapLocation = null
     beaconMediaFileList.value = []
+    beaconLocationMode.value = 'campus'
     beaconDialogVisible.value = true
   }
 
@@ -608,23 +676,35 @@
   const handlePublishBeacon = async () => {
     if (!beaconFormRef.value) return
     
-    await beaconFormRef.value.validate(async (valid) => {
-      if (valid) {
-        beaconLoading.value = true
-        try {
-          const res = await publishBeacon(beaconForm)
-          if (res.code === 200) {
-            ElMessage.success('信标发布成功')
-            beaconDialogVisible.value = false
-            loadNearbyEvents()
-          }
-        } catch (error) {
-          console.error('发布信标失败:', error)
-        } finally {
-          beaconLoading.value = false
-        }
+    // 验证位置选择
+    if (beaconLocationMode.value === 'campus' && !beaconForm.pointId) {
+      ElMessage.warning('请选择校园点位')
+      return
+    }
+    if (beaconLocationMode.value === 'map' && !beaconForm.mapLocation) {
+      ElMessage.warning('请在地图上选择位置')
+      return
+    }
+    
+    // 验证位置描述
+    if (!beaconForm.locationDesc?.trim()) {
+      ElMessage.warning('请输入位置描述')
+      return
+    }
+    
+    beaconLoading.value = true
+    try {
+      const res = await publishBeacon(beaconForm)
+      if (res.code === 200) {
+        ElMessage.success('信标发布成功')
+        beaconDialogVisible.value = false
+        loadNearbyEvents()
       }
-    })
+    } catch (error) {
+      console.error('发布信标失败:', error)
+    } finally {
+      beaconLoading.value = false
+    }
   }
 
   const handleJoinEvent = async (eventId) => {

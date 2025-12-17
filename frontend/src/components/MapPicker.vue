@@ -393,6 +393,14 @@ watch(() => props.initialLocation, (newVal) => {
     selectedLocation.value = newVal
   }
 })
+
+// 监听选中位置变化，通知父组件
+watch(selectedLocation, (newVal) => {
+  if (newVal) {
+    emit('update:location', newVal)
+    emit('change', newVal)
+  }
+}, { deep: true })
 </script>
 
 <style scoped>

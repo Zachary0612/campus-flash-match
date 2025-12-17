@@ -24,6 +24,11 @@ public class BeaconCreateDTO {
     private Long pointId;
     
     /**
+     * 地图选点位置（可选，与pointId二选一）
+     */
+    private java.util.Map<String, Object> mapLocation;
+    
+    /**
      * 图片/视频URL列表（可选）
      */
     private List<String> mediaUrls;

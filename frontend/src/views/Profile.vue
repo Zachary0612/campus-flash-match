@@ -4,67 +4,107 @@
       <el-row :gutter="24">
         <!-- 用户信息卡片 -->
         <el-col :span="8" class="mb-6">
-          <div class="glass rounded-2xl p-8 text-center shadow-lg backdrop-blur-lg bg-white/30 border-white/40 animate-slide-up" style="animation-delay: 0.1s">
-            <div class="relative inline-block mb-4 group">
-              <div class="absolute inset-0 bg-gradient-to-br from-primary to-purple-500 rounded-full blur opacity-50"></div>
-              <el-avatar :size="100" :src="userStore.avatar" class="relative border-4 border-white shadow-md text-3xl font-bold bg-gradient-to-br from-primary to-blue-400">
+          <div class="glass-card rounded-3xl p-8 text-center animate-slide-up relative overflow-hidden group" style="animation-delay: 0.1s">
+            <div class="absolute top-0 left-0 w-full h-32 bg-gradient-to-br from-primary/20 to-purple-500/20"></div>
+            
+            <div class="relative inline-block mb-4 group/avatar mt-8">
+              <div class="absolute inset-0 bg-gradient-to-br from-primary to-purple-500 rounded-full blur-lg opacity-50 group-hover/avatar:opacity-75 transition-opacity duration-500"></div>
+              <el-avatar :size="110" :src="userStore.avatar" class="relative border-4 border-white shadow-xl text-4xl font-black bg-gradient-to-br from-primary to-blue-400 group-hover/avatar:scale-105 transition-transform duration-300">
                 {{ userStore.nickname?.charAt(0) }}
               </el-avatar>
               <el-upload
-                class="avatar-uploader absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                class="avatar-uploader absolute inset-0 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-all duration-300 cursor-pointer z-10"
                 :action="uploadAction"
                 :show-file-list="false"
                 :http-request="handleAvatarUpload"
                 accept="image/*"
               >
-                <div class="w-full h-full rounded-full bg-black/50 flex items-center justify-center">
-                  <el-icon class="text-white text-2xl"><Camera /></el-icon>
+                <div class="w-full h-full rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center transform scale-95 group-hover/avatar:scale-100 transition-transform">
+                  <el-icon class="text-white text-3xl drop-shadow-md"><Camera /></el-icon>
                 </div>
               </el-upload>
             </div>
-            <div class="user-name text-xl font-bold text-gray-800 mb-1">{{ userStore.nickname }}</div>
-            <div class="user-id text-xs text-gray-500 bg-gray-100/50 inline-block px-2 py-0.5 rounded-full mb-3">ID: {{ userStore.userId }}</div>
+            
+            <div class="user-name text-2xl font-black text-gray-800 mb-1 tracking-tight">{{ userStore.nickname }}</div>
+            <div class="user-id text-xs font-mono text-gray-500 bg-white/50 border border-white/60 inline-block px-3 py-1 rounded-full mb-4 shadow-sm">ID: {{ userStore.userId }}</div>
             
             <!-- 个人简介 -->
-            <div v-if="profileData.bio" class="text-sm text-gray-600 mb-3 px-2">{{ profileData.bio }}</div>
+            <div v-if="profileData.bio" class="text-sm text-gray-600 mb-5 px-4 leading-relaxed italic relative">
+              <span class="text-3xl text-gray-300 absolute -top-2 left-2 font-serif">"</span>
+              {{ profileData.bio }}
+              <span class="text-3xl text-gray-300 absolute -bottom-4 right-2 font-serif">"</span>
+            </div>
             
             <!-- 基本信息标签 -->
-            <div v-if="profileData.gender || profileData.grade || profileData.major" class="flex flex-wrap justify-center gap-2 mb-4">
-              <el-tag v-if="profileData.gender === 1 || profileData.gender === 2" size="small" type="info">
-                {{ profileData.gender === 1 ? '男' : '女' }}
+            <div v-if="profileData.gender || profileData.grade || profileData.major" class="flex flex-wrap justify-center gap-2 mb-6">
+              <el-tag v-if="profileData.gender === 1 || profileData.gender === 2" size="default" :type="profileData.gender === 1 ? 'primary' : 'danger'" effect="light" class="!rounded-lg !font-bold">
+                <el-icon class="mr-1"><component :is="profileData.gender === 1 ? 'Male' : 'Female'" /></el-icon>
+                {{ profileData.gender === 1 ? '男生' : '女生' }}
               </el-tag>
-              <el-tag v-if="profileData.grade" size="small" type="success">{{ profileData.grade }}</el-tag>
-              <el-tag v-if="profileData.major" size="small" type="warning">{{ profileData.major }}</el-tag>
+              <el-tag v-if="profileData.grade" size="default" type="success" effect="light" class="!rounded-lg !font-bold">{{ profileData.grade }}</el-tag>
+              <el-tag v-if="profileData.major" size="default" type="warning" effect="light" class="!rounded-lg !font-bold">{{ profileData.major }}</el-tag>
             </div>
             
             <!-- 兴趣标签 -->
-            <div v-if="profileData.interests" class="flex flex-wrap justify-center gap-1 mb-4">
+            <div v-if="profileData.interests" class="flex flex-wrap justify-center gap-2 mb-6 px-2">
               <el-tag 
                 v-for="interest in profileData.interests.split(',')" 
                 :key="interest" 
                 size="small" 
                 effect="plain"
-                class="!bg-blue-50 !text-blue-600 !border-blue-200"
+                class="!bg-white/60 !text-gray-600 !border-gray-200 !rounded-md shadow-sm hover:!text-primary hover:!border-primary transition-colors"
               >
-                {{ interest.trim() }}
+                # {{ interest.trim() }}
               </el-tag>
             </div>
             
-            <div class="border-t border-gray-200/50 pt-4">
+            <div class="border-t border-gray-200/50 pt-6">
               <div class="user-stats">
-                <div class="stat-item">
-                  <div class="stat-label text-gray-500 text-xs mb-1 uppercase tracking-wider">信用分</div>
-                  <div class="stat-value text-4xl font-black" :class="getScoreClass(userStore.creditScore)">
-                    {{ userStore.creditScore }}
+                <div class="stat-item bg-white/40 rounded-xl p-5 border border-white/50 shadow-sm mx-4">
+                  <div class="relative w-32 h-32 mx-auto mb-3">
+                    <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                      <!-- 背景圆环 -->
+                      <circle
+                        class="text-gray-200"
+                        stroke="currentColor"
+                        stroke-width="8"
+                        cx="50"
+                        cy="50"
+                        r="40"
+                        fill="transparent"
+                      />
+                      <!-- 进度圆环 -->
+                      <circle
+                        :class="getScoreStrokeClass(userStore.creditScore)"
+                        stroke="currentColor"
+                        stroke-width="8"
+                        :stroke-dasharray="circumference"
+                        :stroke-dashoffset="dashoffset"
+                        stroke-linecap="round"
+                        cx="50"
+                        cy="50"
+                        r="40"
+                        fill="transparent"
+                        class="transition-all duration-1000 ease-out"
+                      />
+                    </svg>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                      <div class="text-3xl font-black" :class="getScoreClass(userStore.creditScore)">
+                        {{ userStore.creditScore }}
+                      </div>
+                      <div class="text-xs text-gray-500 mt-0.5">信用分</div>
+                    </div>
                   </div>
-                  <div class="mt-1 text-xs text-gray-400">{{ getCreditLevel(userStore.creditScore) }}</div>
+                  <div class="inline-block px-4 py-1.5 rounded-full text-xs font-bold text-white shadow-md" :class="getScoreBgClass(userStore.creditScore)">
+                    {{ getCreditLevel(userStore.creditScore) }}
+                  </div>
                 </div>
               </div>
             </div>
             
             <!-- 编辑资料按钮 -->
-            <el-button type="primary" plain class="mt-4 !rounded-lg w-full" @click="showEditDialog = true">
-              <el-icon class="mr-1"><Edit /></el-icon>
+            <el-button type="primary" plain size="large" class="mt-6 !rounded-xl w-full !h-12 !font-bold shadow-md hover:shadow-lg transition-all hover:-translate-y-0.5" @click="showEditDialog = true">
+              <el-icon class="mr-2"><Edit /></el-icon>
               编辑资料
             </el-button>
           </div>
@@ -72,20 +112,25 @@
         
         <!-- 位置绑定 -->
         <el-col :span="16">
-          <div class="glass rounded-2xl p-6 mb-6 shadow-lg backdrop-blur-lg bg-white/30 border-white/40 animate-slide-up" style="animation-delay: 0.2s">
-            <div class="flex items-center mb-6 border-b border-white/20 pb-4">
-              <el-icon class="text-xl mr-2 text-primary"><Location /></el-icon>
-              <span class="text-lg font-bold text-gray-800">校园位置绑定</span>
+          <div class="glass-card rounded-3xl p-8 mb-6 animate-slide-up" style="animation-delay: 0.2s">
+            <div class="flex items-center mb-6 pb-4 border-b border-gray-100/50">
+              <div class="p-2 bg-blue-100 rounded-xl mr-3 text-primary">
+                <el-icon class="text-xl"><Location /></el-icon>
+              </div>
+              <div>
+                <h2 class="text-xl font-black text-gray-800">校园位置绑定</h2>
+                <p class="text-xs text-gray-500 mt-0.5">绑定位置以获取更精准的附近推荐</p>
+              </div>
             </div>
             
             <!-- 位置选择模式切换 -->
-            <div class="mb-4">
-              <el-radio-group v-model="profileLocationMode" size="small">
-                <el-radio-button label="point">选择点位</el-radio-button>
-                <el-radio-button label="map">地图选点</el-radio-button>
+            <div class="mb-6 bg-gray-100/50 p-1 rounded-xl inline-flex">
+              <el-radio-group v-model="profileLocationMode" size="large" class="!border-none">
+                <el-radio-button label="point" class="!rounded-lg !overflow-hidden">选择点位</el-radio-button>
+                <el-radio-button label="map" class="!rounded-lg !overflow-hidden">地图选点</el-radio-button>
               </el-radio-group>
             </div>
-
+            
             <el-form :model="locationForm" label-width="0" class="mb-6">
               <!-- 点位选择模式 -->
               <div v-if="profileLocationMode === 'point'" class="flex gap-4 items-end">
@@ -153,18 +198,26 @@
           </div>
           
           <!-- WebSocket连接状态 -->
-          <div class="glass rounded-2xl p-6 shadow-lg backdrop-blur-lg bg-white/30 border-white/40 animate-slide-up" style="animation-delay: 0.3s">
-            <div class="flex items-center mb-6 border-b border-white/20 pb-4">
-              <el-icon class="text-xl mr-2 text-warning"><Bell /></el-icon>
-              <span class="text-lg font-bold text-gray-800">实时通知</span>
+          <div class="glass-card rounded-3xl p-8 animate-slide-up" style="animation-delay: 0.3s">
+            <div class="flex items-center mb-6 pb-4 border-b border-gray-100/50">
+              <div class="p-2 bg-yellow-100 rounded-xl mr-3 text-warning">
+                <el-icon class="text-xl"><Bell /></el-icon>
+              </div>
+              <div>
+                <h2 class="text-xl font-black text-gray-800">实时通知服务</h2>
+                <p class="text-xs text-gray-500 mt-0.5">保持连接以接收即时消息和提醒</p>
+              </div>
             </div>
             
-            <div class="flex items-center justify-between mb-6 bg-white/40 p-4 rounded-xl">
-              <div class="status-item flex items-center gap-3">
-                <span class="status-label font-medium text-gray-700">WebSocket状态</span>
-                <div class="flex items-center px-3 py-1 rounded-full text-sm font-bold" :class="wsStore.connected ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'">
-                  <div class="w-2 h-2 rounded-full mr-2" :class="wsStore.connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'"></div>
-                  {{ wsStore.connected ? '已连接' : '未连接' }}
+            <div class="flex items-center justify-between mb-6 bg-white/50 p-5 rounded-2xl border border-white/60 shadow-inner">
+              <div class="status-item flex items-center gap-4">
+                <span class="status-label font-bold text-gray-700">服务状态</span>
+                <div class="flex items-center px-4 py-1.5 rounded-full text-sm font-bold shadow-sm transition-colors duration-300" :class="wsStore.connected ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'">
+                  <div class="w-2.5 h-2.5 rounded-full mr-2.5 relative">
+                    <span class="absolute inset-0 rounded-full animate-ping opacity-75" :class="wsStore.connected ? 'bg-emerald-500' : 'bg-red-500'"></span>
+                    <span class="relative inline-flex rounded-full w-2.5 h-2.5" :class="wsStore.connected ? 'bg-emerald-500' : 'bg-red-500'"></span>
+                  </div>
+                  {{ wsStore.connected ? '运行正常' : '已断开' }}
                 </div>
               </div>
               
@@ -173,31 +226,37 @@
                   v-if="!wsStore.connected"
                   type="primary"
                   @click="wsStore.connect()"
-                  class="!rounded-lg"
+                  class="!rounded-xl shadow-md shadow-blue-200"
+                  size="default"
                 >
-                  连接服务
+                  <el-icon class="mr-1"><Refresh /></el-icon>
+                  重连服务
                 </el-button>
                 <el-button
                   v-else
                   type="danger"
                   plain
                   @click="wsStore.disconnect()"
-                  class="!rounded-lg"
+                  class="!rounded-xl"
+                  size="default"
                 >
+                  <el-icon class="mr-1"><SwitchButton /></el-icon>
                   断开连接
                 </el-button>
               </div>
             </div>
             
-            <div class="bg-gray-50/50 rounded-xl p-4 border border-gray-100">
+            <div class="bg-blue-50/50 rounded-2xl p-5 border border-blue-100/60">
                <div class="flex items-start">
-                 <el-icon class="text-gray-500 mt-1 mr-2"><InfoFilled /></el-icon>
+                 <div class="p-1 bg-blue-100 rounded-full mr-3 text-blue-500 shrink-0 mt-0.5">
+                   <el-icon><InfoFilled /></el-icon>
+                 </div>
                  <div class="text-sm text-gray-600">
-                   <p class="font-semibold mb-2">通知功能说明</p>
-                   <ul class="space-y-1 pl-1">
-                     <li class="flex items-center"><div class="w-1 h-1 rounded-full bg-gray-400 mr-2"></div>事件满员时会收到实时通知</li>
-                     <li class="flex items-center"><div class="w-1 h-1 rounded-full bg-gray-400 mr-2"></div>事件结算时会收到结算结果</li>
-                     <li class="flex items-center"><div class="w-1 h-1 rounded-full bg-gray-400 mr-2"></div>新成员加入时会收到提醒</li>
+                   <p class="font-bold text-blue-800 mb-2">服务说明</p>
+                   <ul class="space-y-2 pl-1">
+                     <li class="flex items-center"><div class="w-1.5 h-1.5 rounded-full bg-blue-300 mr-2"></div>事件满员时会收到实时通知</li>
+                     <li class="flex items-center"><div class="w-1.5 h-1.5 rounded-full bg-blue-300 mr-2"></div>事件结算时会收到结算结果</li>
+                     <li class="flex items-center"><div class="w-1.5 h-1.5 rounded-full bg-blue-300 mr-2"></div>新成员加入时会收到提醒</li>
                    </ul>
                  </div>
                </div>
@@ -296,7 +355,7 @@ import { useWebSocketStore } from '@/stores/websocket'
 import { bindLocation, getCampusPoints, updateAvatar } from '@/api/user'
 import { uploadFile } from '@/api/file'
 import { getMyProfile, updateProfile } from '@/api/profile'
-import { Location, InfoFilled, Bell, Camera, Edit } from '@element-plus/icons-vue'
+import { Location, InfoFilled, Bell, Camera, Edit, Male, Female, Refresh, SwitchButton } from '@element-plus/icons-vue'
 
 const userStore = useUserStore()
 const wsStore = useWebSocketStore()
@@ -486,6 +545,32 @@ const getScoreClass = (score) => {
   if (score >= 80) return 'text-blue-500'
   if (score >= 60) return 'text-yellow-500'
   return 'text-red-500'
+}
+
+// SVG圆环仪表盘参数
+const circumference = 2 * Math.PI * 40 // r=40的圆周长
+
+const dashoffset = computed(() => {
+  const maxScore = 100
+  const score = userStore.creditScore || 0
+  const progress = Math.min(score / maxScore, 1)
+  return circumference * (1 - progress)
+})
+
+// 获取信用分stroke颜色类
+const getScoreStrokeClass = (score) => {
+  if (score >= 90) return 'text-emerald-500'
+  if (score >= 80) return 'text-blue-500'
+  if (score >= 60) return 'text-yellow-500'
+  return 'text-red-500'
+}
+
+// 获取信用分背景色类
+const getScoreBgClass = (score) => {
+  if (score >= 90) return 'bg-gradient-to-r from-emerald-500 to-teal-400'
+  if (score >= 80) return 'bg-gradient-to-r from-blue-500 to-cyan-400'
+  if (score >= 60) return 'bg-gradient-to-r from-yellow-500 to-orange-400'
+  return 'bg-gradient-to-r from-red-500 to-rose-400'
 }
 
 // 获取校园点位列表

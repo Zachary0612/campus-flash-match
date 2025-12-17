@@ -9,35 +9,42 @@
 
       <template v-else-if="event">
         <!-- 事件头部 -->
-        <div class="glass rounded-2xl p-8 mb-6 shadow-lg backdrop-blur-lg bg-white/30 border-white/40 animate-slide-up">
-          <div class="flex justify-between items-start mb-6">
-            <div>
-              <div class="flex items-center gap-3 mb-3">
-                <el-tag :type="event.eventType === 'group_buy' ? 'success' : 'primary'" size="large">
-                  {{ event.eventType === 'group_buy' ? '拼单' : '约伴' }}
+        <div class="glass-card rounded-3xl p-8 mb-8 animate-slide-up relative overflow-hidden group">
+          <div class="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-primary/10 to-purple-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+          
+          <div class="flex flex-col md:flex-row justify-between items-start mb-8 relative z-10">
+            <div class="flex-1">
+              <div class="flex items-center gap-3 mb-4">
+                <el-tag :type="event.eventType === 'group_buy' ? 'primary' : 'success'" effect="dark" class="!rounded-lg !px-3 !h-8 !text-sm !font-bold shadow-md">
+                  {{ event.eventType === 'group_buy' ? '🛍️ 拼单' : '👥 约伴' }}
                 </el-tag>
-                <el-tag :type="getStatusTag(event.status)">{{ getStatusName(event.status) }}</el-tag>
+                <el-tag :type="getStatusTag(event.status)" effect="light" class="!rounded-lg !px-3 !h-8 !text-sm !font-bold border !bg-white/50 backdrop-blur-sm">
+                  {{ getStatusName(event.status) }}
+                </el-tag>
               </div>
-              <h1 class="text-3xl font-bold text-gray-800 mb-2">{{ event.title }}</h1>
-              <p v-if="event.description" class="text-gray-600">{{ event.description }}</p>
+              <h1 class="text-4xl font-black text-gray-800 mb-4 tracking-tight leading-tight">{{ event.title }}</h1>
+              <p v-if="event.description" class="text-gray-600 text-lg leading-relaxed max-w-3xl bg-white/30 p-4 rounded-xl border border-white/40 backdrop-blur-sm shadow-sm">{{ event.description }}</p>
             </div>
 
             <!-- 操作按钮 -->
-            <div class="flex gap-3">
+            <div class="flex gap-3 mt-4 md:mt-0">
               <el-button
                 :type="isFavorite ? 'warning' : 'default'"
                 :icon="isFavorite ? StarFilled : Star"
                 @click="handleFavorite"
                 :loading="favoriteLoading"
-              >
-                {{ isFavorite ? '已收藏' : '收藏' }}
-              </el-button>
+                circle
+                size="large"
+                class="!shadow-md hover:!scale-110 transition-transform"
+              />
               
               <template v-if="event.status === 'active'">
                 <el-button
                   v-if="isOwner"
                   type="danger"
                   @click="handleCancelEvent"
+                  class="!rounded-xl shadow-lg shadow-red-200"
+                  size="large"
                 >
                   取消事件
                 </el-button>
@@ -46,14 +53,18 @@
                   type="primary"
                   @click="handleJoinEvent"
                   :loading="joinLoading"
+                  class="!rounded-xl shadow-lg shadow-blue-200 !font-bold !px-8"
+                  size="large"
                 >
-                  参与事件
+                  立即参与
                 </el-button>
                 <el-button
                   v-else
                   type="warning"
                   @click="handleQuitEvent"
                   :loading="quitLoading"
+                  class="!rounded-xl shadow-lg shadow-orange-200"
+                  size="large"
                 >
                   退出事件
                 </el-button>
@@ -66,11 +77,13 @@
                   type="success"
                   @click="handleConfirmEvent"
                   :loading="confirmLoading"
+                  class="!rounded-xl shadow-lg shadow-green-200 !font-bold animate-pulse-slow"
+                  size="large"
                 >
-                  <el-icon class="mr-1"><Check /></el-icon>
+                  <el-icon class="mr-2"><Check /></el-icon>
                   确认完成
                 </el-button>
-                <el-tag v-else type="success" effect="plain" size="large">
+                <el-tag v-else type="success" effect="dark" size="large" class="!rounded-xl !px-4 !h-10">
                   <el-icon class="mr-1"><Check /></el-icon>
                   已确认
                 </el-tag>
@@ -79,44 +92,50 @@
           </div>
           
           <!-- 待确认状态提示 -->
-          <div v-if="event.status === 'pending_confirm'" class="mt-4 bg-orange-50 border border-orange-200 rounded-lg p-4">
-            <div class="flex items-center text-orange-600">
-              <el-icon class="mr-2 text-xl"><Bell /></el-icon>
-              <span class="font-medium">事件已满员，等待所有成员确认完成</span>
+          <div v-if="event.status === 'pending_confirm'" class="mb-6 bg-gradient-to-r from-orange-50 to-orange-100/50 border border-orange-200 rounded-xl p-5 shadow-inner">
+            <div class="flex items-center text-orange-700 font-bold text-lg mb-2">
+              <el-icon class="mr-2 text-xl animate-bounce-gentle"><Bell /></el-icon>
+              <span>事件已满员，等待所有成员确认完成</span>
             </div>
-            <div class="mt-2 text-sm text-orange-500">
+            <div class="text-orange-600 font-medium ml-7">
               确认进度：{{ confirmationStatus.confirmedCount }}/{{ confirmationStatus.totalCount }} 人已确认
+            </div>
+            <div class="w-full bg-orange-200 h-2 rounded-full mt-3 ml-7 max-w-md overflow-hidden">
+              <div class="bg-orange-500 h-full rounded-full transition-all duration-1000 ease-out" :style="{ width: `${(confirmationStatus.confirmedCount / confirmationStatus.totalCount) * 100}%` }"></div>
             </div>
           </div>
 
           <!-- 集合地点 -->
-          <div v-if="eventLocation" class="mb-6 bg-blue-50/80 border border-blue-100 rounded-xl p-4">
-            <div class="flex items-start">
-              <el-icon class="mr-3 mt-1 text-blue-500 text-xl"><Location /></el-icon>
-              <div class="flex-1">
-                <div class="text-sm font-semibold text-blue-700 mb-1">集合地点</div>
-                <div class="text-blue-900 font-medium">{{ eventLocation }}</div>
-              </div>
+          <div v-if="eventLocation" class="mb-8 bg-blue-50/50 border border-blue-100/60 rounded-2xl p-5 flex items-center shadow-sm backdrop-blur-sm">
+            <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mr-4 shrink-0">
+              <el-icon class="text-blue-600 text-2xl"><Location /></el-icon>
             </div>
+            <div class="flex-1">
+              <div class="text-xs font-bold text-blue-500 uppercase tracking-wider mb-1">集合地点</div>
+              <div class="text-blue-900 font-bold text-lg">{{ eventLocation }}</div>
+            </div>
+            <el-button type="primary" link @click="scrollToMap">
+              查看路线 <el-icon class="ml-1"><ArrowRight /></el-icon>
+            </el-button>
           </div>
 
-          <!-- 事件信息 -->
-          <div class="grid grid-cols-4 gap-6 bg-white/40 rounded-xl p-6">
-            <div class="text-center">
-              <div class="text-2xl font-bold text-primary">{{ event.currentNum }}/{{ event.targetNum }}</div>
-              <div class="text-sm text-gray-500 mt-1">参与人数</div>
+          <!-- 事件信息 Stats -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
+            <div class="bg-white/40 rounded-2xl p-5 text-center border border-white/50 shadow-sm backdrop-blur-md hover:-translate-y-1 transition-transform duration-300">
+              <div class="text-3xl font-black text-primary mb-1">{{ event.currentNum }}<span class="text-lg text-gray-400 font-medium">/{{ event.targetNum }}</span></div>
+              <div class="text-sm font-bold text-gray-500 uppercase tracking-wide">参与人数</div>
             </div>
-            <div class="text-center">
-              <div class="text-2xl font-bold text-gray-800">{{ event.expireMinutes }}分钟</div>
-              <div class="text-sm text-gray-500 mt-1">有效时长</div>
+            <div class="bg-white/40 rounded-2xl p-5 text-center border border-white/50 shadow-sm backdrop-blur-md hover:-translate-y-1 transition-transform duration-300">
+              <div class="text-3xl font-black text-gray-800 mb-1">{{ event.expireMinutes }}<span class="text-sm text-gray-500 font-medium">m</span></div>
+              <div class="text-sm font-bold text-gray-500 uppercase tracking-wide">有效时长</div>
             </div>
-            <div class="text-center">
-              <div class="text-2xl font-bold text-gray-800">{{ commentCount }}</div>
-              <div class="text-sm text-gray-500 mt-1">评论数</div>
+            <div class="bg-white/40 rounded-2xl p-5 text-center border border-white/50 shadow-sm backdrop-blur-md hover:-translate-y-1 transition-transform duration-300">
+              <div class="text-3xl font-black text-gray-800 mb-1">{{ commentCount }}</div>
+              <div class="text-sm font-bold text-gray-500 uppercase tracking-wide">评论数</div>
             </div>
-            <div class="text-center">
-              <div class="text-2xl font-bold text-gray-800">{{ event.favoriteCount || 0 }}</div>
-              <div class="text-sm text-gray-500 mt-1">收藏数</div>
+            <div class="bg-white/40 rounded-2xl p-5 text-center border border-white/50 shadow-sm backdrop-blur-md hover:-translate-y-1 transition-transform duration-300">
+              <div class="text-3xl font-black text-gray-800 mb-1">{{ event.favoriteCount || 0 }}</div>
+              <div class="text-sm font-bold text-gray-500 uppercase tracking-wide">收藏数</div>
             </div>
           </div>
         </div>
@@ -125,95 +144,143 @@
           <!-- 左侧：发起者和参与者 -->
           <el-col :span="8">
             <!-- 发起者信息 -->
-            <div class="glass rounded-2xl p-6 mb-6 shadow-lg backdrop-blur-lg bg-white/30 border-white/40 animate-slide-up" style="animation-delay: 0.1s">
-              <h3 class="font-bold text-gray-800 mb-4 flex items-center">
-                <el-icon class="mr-2 text-primary"><User /></el-icon>
+            <div class="glass-card rounded-3xl p-6 mb-6 animate-slide-up bg-white/40 border border-white/50" style="animation-delay: 0.1s">
+              <h3 class="font-bold text-gray-800 mb-4 flex items-center text-lg">
+                <div class="p-1.5 bg-blue-100 rounded-lg mr-2 text-primary">
+                  <el-icon><User /></el-icon>
+                </div>
                 发起者
               </h3>
-              <div class="flex items-center gap-4 cursor-pointer hover:opacity-80" @click="goToProfile(event.ownerId)">
-                <el-avatar :size="50" :src="event.ownerAvatar">
+              <div class="flex items-center gap-4 cursor-pointer hover:bg-white/50 p-3 rounded-2xl transition-all duration-300 group" @click="goToProfile(event.ownerId)">
+                <el-avatar :size="56" :src="event.ownerAvatar" class="border-2 border-white shadow-md group-hover:scale-105 transition-transform">
                   {{ event.ownerNickname?.charAt(0) }}
                 </el-avatar>
                 <div>
-                  <div class="font-medium text-gray-800">{{ event.ownerNickname }}</div>
-                  <div class="text-sm text-gray-500">
-                    信用分: <span :class="getScoreClass(event.ownerCreditScore)">{{ event.ownerCreditScore }}</span>
+                  <div class="font-bold text-gray-800 text-lg group-hover:text-primary transition-colors">{{ event.ownerNickname }}</div>
+                  <div class="text-sm font-medium flex items-center mt-1">
+                    <span class="text-gray-500 mr-2">信用分</span>
+                    <span :class="getScoreClass(event.ownerCreditScore)" class="font-bold bg-gray-100 px-2 py-0.5 rounded text-xs">{{ event.ownerCreditScore }}</span>
                   </div>
                 </div>
               </div>
             </div>
 
             <!-- 参与者列表 -->
-            <div class="glass rounded-2xl p-6 shadow-lg backdrop-blur-lg bg-white/30 border-white/40 animate-slide-up" style="animation-delay: 0.15s">
-              <h3 class="font-bold text-gray-800 mb-4 flex items-center">
-                <el-icon class="mr-2 text-green-500"><UserFilled /></el-icon>
-                参与者 ({{ event.participants?.length || 0 }})
+            <div class="glass-card rounded-3xl p-6 shadow-sm backdrop-blur-xl bg-white/40 border border-white/50 animate-slide-up" style="animation-delay: 0.15s">
+              <h3 class="font-bold text-gray-800 mb-4 flex items-center justify-between text-lg">
+                <div class="flex items-center">
+                  <div class="p-1.5 bg-green-100 rounded-lg mr-2 text-green-600">
+                    <el-icon><UserFilled /></el-icon>
+                  </div>
+                  参与者 <span class="text-sm font-normal text-gray-500 ml-2">({{ event.participants?.length || 0 }})</span>
+                </div>
               </h3>
-              <div v-if="!event.participants?.length" class="text-center py-4 text-gray-400">
-                暂无参与者
+              <div v-if="!event.participants?.length" class="text-center py-8 bg-white/30 rounded-2xl border border-dashed border-gray-300">
+                <el-icon class="text-3xl text-gray-300 mb-2"><User /></el-icon>
+                <p class="text-gray-400 text-sm">暂无参与者</p>
               </div>
-              <div v-else class="space-y-3">
+              <div v-else class="space-y-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
                 <div
                   v-for="p in event.participants"
                   :key="p.userId"
-                  class="flex items-center gap-3 p-2 rounded-lg hover:bg-white/50 cursor-pointer"
+                  class="flex items-center gap-3 p-2 rounded-xl hover:bg-white/60 cursor-pointer transition-all duration-300 group"
                   @click="goToProfile(p.userId)"
                 >
-                  <el-avatar :size="36" :src="p.avatar">{{ p.nickname?.charAt(0) }}</el-avatar>
-                  <div class="flex-1">
-                    <span class="text-gray-800">{{ p.nickname }}</span>
-                    <el-tag v-if="p.isOwner" size="small" type="warning" class="ml-2">发起者</el-tag>
+                  <el-avatar :size="40" :src="p.avatar" class="border border-white shadow-sm group-hover:scale-105 transition-transform">{{ p.nickname?.charAt(0) }}</el-avatar>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between">
+                      <span class="text-gray-800 font-bold truncate">{{ p.nickname }}</span>
+                      <el-tag v-if="p.isOwner" size="small" type="warning" effect="dark" class="ml-2 !rounded-md scale-90">发起者</el-tag>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
             
             <!-- 即时交流（仅参与者可见） -->
-            <div v-if="isJoined || isOwner" class="glass rounded-2xl p-6 mt-6 shadow-lg backdrop-blur-lg bg-white/30 border-white/40 animate-slide-up" style="animation-delay: 0.2s">
-              <h3 class="font-bold text-gray-800 mb-4 flex items-center">
-                <el-icon class="mr-2 text-orange-500"><ChatLineSquare /></el-icon>
+            <div v-if="isJoined || isOwner" class="glass-card rounded-3xl p-6 mt-6 bg-white/40 border border-white/50 animate-slide-up flex flex-col h-[500px]" style="animation-delay: 0.2s">
+              <h3 class="font-bold text-gray-800 mb-4 flex items-center text-lg shrink-0">
+                <div class="p-1.5 bg-orange-100 rounded-lg mr-2 text-orange-500">
+                  <el-icon><ChatLineSquare /></el-icon>
+                </div>
                 即时交流
-                <span class="ml-2 text-xs text-gray-400">(仅参与者可见)</span>
+                <span class="ml-2 text-xs font-normal px-2 py-0.5 bg-orange-50 text-orange-400 rounded-full">内部群聊</span>
               </h3>
               
-              <!-- 聊天消息列表 -->
-              <div ref="chatContainerRef" class="chat-messages h-64 overflow-y-auto bg-white/50 rounded-lg p-3 mb-3 space-y-2">
-                <div v-if="chatMessages.length === 0" class="text-center py-8 text-gray-400 text-sm">
-                  暂无消息，快来打个招呼吧~
+              <!-- 聊天消息列表 - iMessage/WeChat 风格 -->
+              <div ref="chatContainerRef" class="chat-messages flex-1 overflow-y-auto bg-gradient-to-b from-gray-50/50 to-white/30 rounded-2xl p-4 mb-4 space-y-3 shadow-inner border border-white/40 custom-scrollbar">
+                <div v-if="chatMessages.length === 0" class="text-center py-12 text-gray-400 text-sm flex flex-col items-center">
+                  <div class="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-50 rounded-full flex items-center justify-center mb-4 shadow-inner">
+                    <el-icon class="text-3xl text-gray-300"><ChatDotRound /></el-icon>
+                  </div>
+                  <p class="font-medium">暂无消息</p>
+                  <p class="text-xs text-gray-400 mt-1">快来打个招呼吧~</p>
                 </div>
                 <div
-                  v-for="msg in chatMessages"
+                  v-for="(msg, index) in chatMessages"
                   :key="msg.id"
-                  class="flex gap-2"
-                  :class="{ 'flex-row-reverse': msg.userId === userStore.userId }"
+                  class="chat-bubble-wrapper"
                 >
-                  <el-avatar :size="28" :src="msg.avatar">{{ msg.nickname?.charAt(0) }}</el-avatar>
-                  <div :class="msg.userId === userStore.userId ? 'text-right' : ''">
-                    <div class="text-xs text-gray-400 mb-1">
-                      <span class="font-medium text-gray-600">{{ msg.nickname }}</span>
-                      <span class="ml-2">{{ formatChatTime(msg.time) }}</span>
-                    </div>
-                    <div
-                      class="inline-block px-3 py-2 rounded-lg text-sm max-w-[200px] break-words"
-                      :class="msg.userId === userStore.userId ? 'bg-primary text-white' : 'bg-gray-100 text-gray-800'"
+                  <!-- 时间分割线 -->
+                  <div v-if="shouldShowTimeDivider(msg, index)" class="flex justify-center my-4">
+                    <span class="text-[10px] text-gray-400 bg-gray-100/80 px-3 py-1 rounded-full">{{ formatChatTime(msg.time) }}</span>
+                  </div>
+                  
+                  <div
+                    class="flex gap-2"
+                    :class="msg.userId === userStore.userId ? 'flex-row-reverse' : ''"
+                  >
+                    <!-- 头像 -->
+                    <el-avatar 
+                      :size="32" 
+                      :src="msg.avatar" 
+                      class="shrink-0 cursor-pointer hover:scale-105 transition-transform shadow-sm"
+                      @click="goToProfile(msg.userId)"
                     >
-                      {{ msg.content }}
+                      {{ msg.nickname?.charAt(0) }}
+                    </el-avatar>
+                    
+                    <!-- 消息内容 -->
+                    <div class="flex flex-col max-w-[70%]" :class="msg.userId === userStore.userId ? 'items-end' : 'items-start'">
+                      <!-- 昵称 -->
+                      <div v-if="msg.userId !== userStore.userId" class="text-[11px] text-gray-500 mb-1 ml-3 font-medium">
+                        {{ msg.nickname }}
+                      </div>
+                      
+                      <!-- 气泡 -->
+                      <div class="relative group">
+                        <div
+                          class="chat-bubble px-4 py-2.5 text-sm break-words leading-relaxed"
+                          :class="msg.userId === userStore.userId 
+                            ? 'bg-gradient-to-br from-primary via-blue-500 to-blue-600 text-white bubble-right shadow-md shadow-blue-200/50' 
+                            : 'bg-white text-gray-700 bubble-left shadow-sm border border-gray-100/80'"
+                        >
+                          {{ msg.content }}
+                        </div>
+                        <!-- 时间标签（悬停显示） -->
+                        <div 
+                          class="absolute top-1/2 -translate-y-1/2 text-[10px] text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap"
+                          :class="msg.userId === userStore.userId ? 'right-full mr-2' : 'left-full ml-2'"
+                        >
+                          {{ formatChatTime(msg.time) }}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
               
               <!-- 发送消息 -->
-              <div class="flex gap-2">
+              <div class="flex gap-2 shrink-0 bg-white/50 p-2 rounded-2xl border border-white/60 shadow-sm backdrop-blur-sm">
                 <el-input
                   v-model="chatInput"
-                  placeholder="输入消息..."
+                  placeholder="说点什么..."
                   @keyup.enter="sendChatMessage"
-                  size="small"
-                  class="flex-1"
+                  class="flex-1 !border-none !bg-transparent"
+                  :input-style="{ boxShadow: 'none', background: 'transparent' }"
                 />
-                <el-button type="primary" size="small" @click="sendChatMessage" :disabled="!chatInput.trim()">
-                  发送
+                <el-button type="primary" circle class="!w-10 !h-10 shadow-md" @click="sendChatMessage" :disabled="!chatInput.trim()">
+                  <el-icon><Position /></el-icon>
                 </el-button>
               </div>
             </div>
@@ -222,10 +289,12 @@
           <!-- 右侧：路线导航和评论区 -->
           <el-col :span="16">
             <!-- 路线导航（仅参与者可见） -->
-            <div v-if="(isJoined || isOwner) && destinationLocation" class="glass rounded-2xl p-6 mb-6 shadow-lg backdrop-blur-lg bg-white/30 border-white/40 animate-slide-up" style="animation-delay: 0.18s">
-              <h3 class="font-bold text-gray-800 mb-4 flex items-center justify-between">
+            <div v-if="(isJoined || isOwner) && destinationLocation" class="glass-card rounded-3xl p-6 mb-6 animate-slide-up bg-white/40 border border-white/50" style="animation-delay: 0.18s">
+              <h3 class="font-bold text-gray-800 mb-4 flex items-center justify-between text-lg">
                 <div class="flex items-center">
-                  <el-icon class="mr-2 text-green-500"><Position /></el-icon>
+                  <div class="p-1.5 bg-emerald-100 rounded-lg mr-2 text-emerald-600">
+                    <el-icon><Position /></el-icon>
+                  </div>
                   前往集合点
                 </div>
                 <el-button 
@@ -233,90 +302,149 @@
                   size="small" 
                   @click="getCurrentLocation" 
                   :loading="gettingLocation"
-                  text
+                  class="!rounded-lg"
                 >
                   <el-icon class="mr-1"><Aim /></el-icon>
                   重新定位
                 </el-button>
               </h3>
-              <div v-if="!currentLocation" class="text-center py-8">
-                <el-button type="primary" @click="getCurrentLocation" :loading="gettingLocation" size="large">
+              <div v-if="!currentLocation" class="text-center py-16 bg-white/30 rounded-2xl border border-dashed border-emerald-200">
+                <div class="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                  <el-icon class="text-4xl text-emerald-400"><Position /></el-icon>
+                </div>
+                <el-button type="primary" @click="getCurrentLocation" :loading="gettingLocation" size="large" class="!rounded-xl shadow-lg shadow-emerald-200/50 !bg-emerald-500 !border-emerald-500">
                   <el-icon class="mr-2"><Aim /></el-icon>
                   获取我的位置
                 </el-button>
-                <p class="text-sm text-gray-400 mt-3">
-                  {{ userStore.isLoggedIn ? '未绑定位置，点击获取当前位置' : '获取位置后可查看导航路线' }}
+                <p class="text-sm text-gray-500 mt-4 font-medium">
+                  {{ userStore.isLoggedIn ? '获取位置后为您规划最佳路线' : '登录后体验完整导航功能' }}
                 </p>
               </div>
-              <RouteMap 
-                v-else
-                :origin="currentLocation"
-                :destination="destinationLocation"
-                height="500px"
-              />
+              <div v-else class="rounded-2xl overflow-hidden shadow-md border border-white/50">
+                <RouteMap 
+                  :origin="currentLocation"
+                  :destination="destinationLocation"
+                  height="500px"
+                />
+              </div>
             </div>
             
             <!-- 评论区 -->
-            <div class="glass rounded-2xl p-6 shadow-lg backdrop-blur-lg bg-white/30 border-white/40 animate-slide-up" style="animation-delay: 0.2s">
-              <h3 class="font-bold text-gray-800 mb-4 flex items-center">
-                <el-icon class="mr-2 text-blue-500"><ChatDotRound /></el-icon>
+            <div class="glass-card rounded-3xl p-8 bg-white/40 border border-white/50 animate-slide-up" style="animation-delay: 0.2s">
+              <h3 class="font-bold text-gray-800 mb-6 flex items-center text-xl">
+                <div class="p-2 bg-blue-100 rounded-xl mr-3 text-blue-600">
+                  <el-icon><ChatDotRound /></el-icon>
+                </div>
                 评论区
               </h3>
 
               <!-- 发表评论 -->
-              <div class="mb-6">
+              <div class="mb-8 bg-white/50 p-4 rounded-2xl border border-white/60 shadow-sm">
                 <el-input
                   v-model="commentContent"
                   type="textarea"
                   :rows="3"
-                  placeholder="说点什么..."
-                  class="mb-3"
+                  placeholder="分享你的想法..."
+                  class="mb-3 !bg-transparent"
+                  :input-style="{ backgroundColor: 'rgba(255,255,255,0.5)', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.05)' }"
                 />
                 <div class="flex justify-end">
-                  <el-button type="primary" @click="handleAddComment" :loading="commentLoading" :disabled="!commentContent.trim()">
+                  <el-button type="primary" @click="handleAddComment" :loading="commentLoading" :disabled="!commentContent.trim()" class="!rounded-xl !px-6 shadow-md">
                     发表评论
                   </el-button>
                 </div>
               </div>
 
-              <!-- 评论列表 -->
-              <div v-if="comments.length === 0" class="text-center py-8 text-gray-400">
-                暂无评论，快来抢沙发吧~
+              <!-- 评论列表 - 嵌套卡片设计 -->
+              <div v-if="comments.length === 0" class="text-center py-16 text-gray-400">
+                <div class="w-24 h-24 bg-gradient-to-br from-gray-50 to-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
+                  <el-icon class="text-4xl text-gray-300"><ChatDotRound /></el-icon>
+                </div>
+                <p class="font-medium text-gray-500">暂无评论</p>
+                <p class="text-sm text-gray-400 mt-1">快来抢沙发吧~</p>
               </div>
               <div v-else class="space-y-4">
-                <div v-for="comment in comments" :key="comment.id" class="comment-item">
-                  <div class="flex gap-3">
-                    <el-avatar :size="40" :src="comment.avatar" @click="goToProfile(comment.userId)" class="cursor-pointer">
-                      {{ comment.nickname?.charAt(0) }}
-                    </el-avatar>
-                    <div class="flex-1">
-                      <div class="flex items-center justify-between mb-1">
-                        <span class="font-medium text-gray-800">{{ comment.nickname }}</span>
-                        <span class="text-xs text-gray-400">{{ formatTime(comment.createTime) }}</span>
-                      </div>
-                      <p class="text-gray-600 mb-2">{{ comment.content }}</p>
-                      <div class="flex items-center gap-4 text-sm text-gray-400">
-                        <span class="cursor-pointer hover:text-primary flex items-center" @click="handleLikeComment(comment)">
-                          <el-icon class="mr-1"><Pointer /></el-icon>
-                          {{ comment.likeCount || 0 }}
-                        </span>
-                        <span class="cursor-pointer hover:text-primary" @click="handleReply(comment)">
-                          回复
-                        </span>
-                      </div>
-
-                      <!-- 回复列表 -->
-                      <div v-if="comment.replies?.length" class="mt-3 pl-4 border-l-2 border-gray-100 space-y-3">
-                        <div v-for="reply in comment.replies" :key="reply.id" class="flex gap-2">
-                          <el-avatar :size="28" :src="reply.avatar">{{ reply.nickname?.charAt(0) }}</el-avatar>
-                          <div class="flex-1">
-                            <div class="text-sm">
-                              <span class="font-medium text-gray-800">{{ reply.nickname }}</span>
-                              <span v-if="reply.replyToNickname" class="text-gray-400">
-                                回复 <span class="text-primary">@{{ reply.replyToNickname }}</span>
-                              </span>
+                <div v-for="(comment, cIndex) in comments" :key="comment.id" class="comment-card group">
+                  <!-- 主评论卡片 -->
+                  <div class="bg-gradient-to-br from-white/80 to-white/60 rounded-2xl p-5 border border-white/70 shadow-sm hover:shadow-lg transition-all duration-300 backdrop-blur-sm">
+                    <!-- 评论头部 -->
+                    <div class="flex items-start gap-4">
+                      <el-avatar 
+                        :size="44" 
+                        :src="comment.avatar" 
+                        @click="goToProfile(comment.userId)" 
+                        class="cursor-pointer ring-2 ring-white shadow-md hover:scale-110 transition-transform shrink-0"
+                      >
+                        {{ comment.nickname?.charAt(0) }}
+                      </el-avatar>
+                      <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between mb-1">
+                          <div class="flex items-center gap-2">
+                            <span class="font-bold text-gray-800 hover:text-primary cursor-pointer transition-colors" @click="goToProfile(comment.userId)">
+                              {{ comment.nickname }}
+                            </span>
+                            <span class="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">#{{ cIndex + 1 }}</span>
+                          </div>
+                          <span class="text-xs text-gray-400">{{ formatTime(comment.createTime) }}</span>
+                        </div>
+                        <p class="text-gray-700 leading-relaxed mt-2">{{ comment.content }}</p>
+                        
+                        <!-- 操作按钮 -->
+                        <div class="flex items-center gap-4 mt-3 pt-3 border-t border-gray-100">
+                          <button 
+                            class="flex items-center gap-1.5 text-sm text-gray-500 hover:text-primary transition-colors group/btn"
+                            @click="handleLikeComment(comment)"
+                          >
+                            <div class="p-1 rounded-full group-hover/btn:bg-blue-50 transition-colors">
+                              <el-icon class="text-base"><Pointer /></el-icon>
                             </div>
-                            <p class="text-sm text-gray-600">{{ reply.content }}</p>
+                            <span class="font-medium">{{ comment.likeCount || 0 }}</span>
+                          </button>
+                          <button 
+                            class="flex items-center gap-1.5 text-sm text-gray-500 hover:text-primary transition-colors group/btn"
+                            @click="handleReply(comment)"
+                          >
+                            <div class="p-1 rounded-full group-hover/btn:bg-blue-50 transition-colors">
+                              <el-icon class="text-base"><ChatLineSquare /></el-icon>
+                            </div>
+                            <span class="font-medium">回复</span>
+                          </button>
+                          <span v-if="comment.replies?.length" class="text-xs text-gray-400 ml-auto">
+                            {{ comment.replies.length }} 条回复
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <!-- 回复列表 - 嵌套卡片 -->
+                    <div v-if="comment.replies?.length" class="mt-4 ml-14">
+                      <div class="bg-gradient-to-br from-gray-50/80 to-white/50 rounded-xl p-4 border border-gray-100/80 space-y-3">
+                        <div 
+                          v-for="(reply, rIndex) in comment.replies" 
+                          :key="reply.id" 
+                          class="reply-item flex gap-3 pb-3 last:pb-0"
+                          :class="{ 'border-b border-gray-100/60': rIndex < comment.replies.length - 1 }"
+                        >
+                          <el-avatar 
+                            :size="28" 
+                            :src="reply.avatar" 
+                            class="ring-1 ring-white shadow-sm shrink-0 cursor-pointer hover:scale-105 transition-transform"
+                            @click="goToProfile(reply.userId)"
+                          >
+                            {{ reply.nickname?.charAt(0) }}
+                          </el-avatar>
+                          <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-1 text-sm flex-wrap">
+                              <span class="font-bold text-gray-700 hover:text-primary cursor-pointer transition-colors" @click="goToProfile(reply.userId)">
+                                {{ reply.nickname }}
+                              </span>
+                              <span v-if="reply.replyToNickname" class="text-gray-400">
+                                回复
+                                <span class="text-primary font-medium cursor-pointer hover:underline">@{{ reply.replyToNickname }}</span>
+                              </span>
+                              <span class="text-[10px] text-gray-400 ml-auto">{{ formatTime(reply.createTime) }}</span>
+                            </div>
+                            <p class="text-sm text-gray-600 mt-1 leading-relaxed">{{ reply.content }}</p>
                           </div>
                         </div>
                       </div>
@@ -326,8 +454,8 @@
               </div>
 
               <!-- 加载更多 -->
-              <div v-if="comments.length > 0 && hasMoreComments" class="text-center mt-4">
-                <el-button text @click="loadMoreComments">加载更多</el-button>
+              <div v-if="comments.length > 0 && hasMoreComments" class="text-center mt-8">
+                <el-button round @click="loadMoreComments" class="!px-8 !h-10">加载更多评论</el-button>
               </div>
             </div>
           </el-col>
@@ -369,7 +497,7 @@ import { getMyProfile } from '@/api/profile'
 import { useWebSocketStore } from '@/stores/websocket'
 import { 
   Loading, Star, StarFilled, User, UserFilled, ChatDotRound, 
-  Pointer, Warning, ChatLineSquare, Check, Bell, Position, Aim, Location 
+  Pointer, Warning, ChatLineSquare, Check, Bell, Position, Aim, Location, ArrowRight 
 } from '@element-plus/icons-vue'
 import { loadAMap } from '@/utils/mapLoader'
 import dayjs from 'dayjs'
@@ -852,7 +980,25 @@ const formatTime = (time) => {
 
 // 格式化聊天时间
 const formatChatTime = (time) => {
-  return dayjs(time).format('HH:mm')
+  const msgTime = dayjs(time)
+  const now = dayjs()
+  if (msgTime.isSame(now, 'day')) {
+    return msgTime.format('HH:mm')
+  } else if (msgTime.isSame(now.subtract(1, 'day'), 'day')) {
+    return '昨天 ' + msgTime.format('HH:mm')
+  } else if (msgTime.isSame(now, 'year')) {
+    return msgTime.format('MM-DD HH:mm')
+  }
+  return msgTime.format('YYYY-MM-DD HH:mm')
+}
+
+// 是否显示时间分割线（每5分钟或第一条消息）
+const shouldShowTimeDivider = (msg, index) => {
+  if (index === 0) return true
+  const prevMsg = chatMessages.value[index - 1]
+  if (!prevMsg) return true
+  const diff = dayjs(msg.time).diff(dayjs(prevMsg.time), 'minute')
+  return diff >= 5
 }
 
 // 检查收藏状态
@@ -1016,6 +1162,70 @@ onMounted(async () => {
 .comment-item {
   padding: 16px;
   background: rgba(255, 255, 255, 0.5);
-  border-radius: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  transition: all 0.3s ease;
+}
+
+.comment-item:hover {
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+/* iMessage/WeChat 风格气泡 */
+.chat-bubble {
+  border-radius: 18px;
+  position: relative;
+}
+
+.bubble-right {
+  border-top-right-radius: 4px;
+}
+
+.bubble-left {
+  border-top-left-radius: 4px;
+}
+
+/* 气泡尾巴效果 */
+.bubble-right::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: -6px;
+  width: 12px;
+  height: 12px;
+  background: linear-gradient(135deg, var(--el-color-primary) 0%, #3b82f6 100%);
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+  border-radius: 0 4px 0 0;
+}
+
+.bubble-left::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -6px;
+  width: 12px;
+  height: 12px;
+  background: white;
+  clip-path: polygon(100% 0, 100% 100%, 0 0);
+  border-radius: 4px 0 0 0;
+}
+
+/* 自定义滚动条 */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
 }
 </style>

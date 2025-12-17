@@ -5,18 +5,54 @@
       <div class="glass rounded-2xl p-8 shadow-lg backdrop-blur-lg bg-white/30 border-white/40 mb-8 animate-slide-up" style="animation-delay: 0.1s">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div class="col-span-1 flex justify-center md:justify-start">
-            <div class="credit-score-card relative w-full max-w-[300px] aspect-square rounded-full flex flex-col items-center justify-center text-white shadow-2xl overflow-hidden group">
-               <div class="absolute inset-0 bg-gradient-to-br from-primary to-purple-600 transition-transform duration-700 group-hover:scale-110"></div>
-               <div class="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
-               <div class="relative z-10 text-center">
-                  <div class="text-lg opacity-80 font-medium mb-2 tracking-wider">当前信用分</div>
-                  <div class="text-7xl font-black mb-2 drop-shadow-lg tracking-tighter">
-                    {{ creditInfo.currentCredit || 0 }}
-                  </div>
-                  <div class="text-xl font-bold bg-white/20 px-4 py-1 rounded-full backdrop-blur-md border border-white/10 shadow-sm">
-                    {{ getScoreDesc(creditInfo.currentCredit) }}
-                  </div>
-               </div>
+            <div class="credit-score-card relative w-full max-w-[280px] aspect-square flex flex-col items-center justify-center">
+              <!-- 背景光晕效果 -->
+              <div class="absolute inset-0 rounded-full bg-gradient-to-br from-blue-600/30 via-blue-500/20 to-cyan-500/30 blur-2xl animate-pulse-slow"></div>
+              
+              <!-- 外层装饰环 -->
+              <svg class="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 200 200">
+                <defs>
+                  <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#B8860B" />
+                    <stop offset="50%" stop-color="#B8860B" />
+                    <stop offset="100%" stop-color="#B8860B" />
+                  </linearGradient>
+                </defs>
+                <!-- 背景环 -->
+                <circle cx="100" cy="100" r="90" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="12" />
+                <!-- 进度环 -->
+                <circle 
+                  cx="100" cy="100" r="90" 
+                  fill="none" 
+                  :stroke="getScoreGradientUrl()" 
+                  stroke-width="12" 
+                  stroke-linecap="round"
+                  :stroke-dasharray="scoreCircumference"
+                  :stroke-dashoffset="scoreDashoffset"
+                  class="transition-all duration-1000 ease-out score-ring"
+                />
+                <!-- 装饰点 -->
+                <circle cx="100" cy="10" r="4" :fill="getScoreColor(creditInfo.currentCredit)" class="animate-ping-slow" />
+              </svg>
+              
+              <!-- 中心内容 -->
+              <div class="relative z-10 text-center">
+                <div class="text-sm text-gray-500 font-medium mb-1 tracking-widest uppercase">信用分</div>
+                <div class="text-6xl font-black mb-2 tracking-tighter bg-gradient-to-br from-blue-800 via-blue-600 to-cyan-500 bg-clip-text text-transparent drop-shadow-sm animate-score-pop">
+                  {{ animatedScore }}
+                </div>
+                <div 
+                  class="text-sm font-bold px-4 py-1.5 rounded-full shadow-lg border transition-all duration-500"
+                  :class="getScoreBadgeClass(creditInfo.currentCredit)"
+                >
+                  {{ getScoreDesc(creditInfo.currentCredit) }}
+                </div>
+              </div>
+              
+              <!-- 粒子效果 -->
+              <div class="absolute inset-0 overflow-hidden rounded-full pointer-events-none">
+                <div v-for="i in 6" :key="i" class="particle" :style="getParticleStyle(i)"></div>
+              </div>
             </div>
           </div>
           
@@ -119,7 +155,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, watch, computed } from 'vue'
 import Layout from '@/components/Layout.vue'
 import { getCreditRecords } from '@/api/credit'
 import { getCreditInfo } from '@/api/user'
@@ -195,6 +231,68 @@ const getScoreDesc = (score) => {
 const formatTime = (timestamp) => {
   return dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss')
 }
+
+// SVG圆环参数
+const scoreCircumference = 2 * Math.PI * 90
+const scoreDashoffset = computed(() => {
+  const maxScore = 120
+  const score = creditInfo.currentCredit || 0
+  const progress = Math.min(score / maxScore, 1)
+  return scoreCircumference * (1 - progress)
+})
+
+// 动画分数
+const animatedScore = ref(0)
+watch(() => creditInfo.currentCredit, (newVal) => {
+  if (newVal) {
+    // 数字滚动动画
+    const start = animatedScore.value
+    const end = newVal
+    const duration = 1000
+    const startTime = Date.now()
+    const animate = () => {
+      const elapsed = Date.now() - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      animatedScore.value = Math.round(start + (end - start) * progress)
+      if (progress < 1) requestAnimationFrame(animate)
+    }
+    animate()
+  }
+}, { immediate: true })
+
+// 获取分数颜色
+const getScoreColor = (score) => {
+  if (score >= 90) return '#10b981'
+  if (score >= 80) return '#3b82f6'
+  if (score >= 60) return '#f59e0b'
+  return '#ef4444'
+}
+
+// 获取渐变URL
+const getScoreGradientUrl = () => {
+  return 'url(#scoreGradient)'
+}
+
+// 获取徽章样式
+const getScoreBadgeClass = (score) => {
+  if (score >= 90) return 'bg-gradient-to-r from-emerald-500 to-teal-400 text-white border-emerald-400'
+  if (score >= 80) return 'bg-gradient-to-r from-blue-500 to-cyan-400 text-white border-blue-400'
+  if (score >= 60) return 'bg-gradient-to-r from-yellow-500 to-orange-400 text-white border-yellow-400'
+  return 'bg-gradient-to-r from-red-500 to-rose-400 text-white border-red-400'
+}
+
+// 粒子样式
+const getParticleStyle = (index) => {
+  const angle = (index - 1) * 60
+  const radius = 80 + Math.random() * 20
+  const x = 50 + radius * Math.cos(angle * Math.PI / 180) / 1.5
+  const y = 50 + radius * Math.sin(angle * Math.PI / 180) / 1.5
+  return {
+    left: `${x}%`,
+    top: `${y}%`,
+    animationDelay: `${index * 0.3}s`
+  }
+}
 </script>
 
 <style scoped>
@@ -202,5 +300,54 @@ const formatTime = (timestamp) => {
   max-width: 1000px;
   margin: 0 auto;
   padding-bottom: 40px;
+}
+
+/* 分数环动画 */
+.score-ring {
+  filter: drop-shadow(0 0 8px currentColor);
+}
+
+/* 分数弹出动画 */
+@keyframes score-pop {
+  0% { transform: scale(0.8); opacity: 0; }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-score-pop {
+  animation: score-pop 0.8s ease-out;
+}
+
+/* 粒子效果 */
+.particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1e40af, #3b82f6);
+  opacity: 0.6;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) scale(1); opacity: 0.6; }
+  50% { transform: translateY(-20px) scale(1.2); opacity: 0.3; }
+}
+
+/* 慢速pulse */
+.animate-pulse-slow {
+  animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* 慢速ping */
+.animate-ping-slow {
+  animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes ping {
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
 }
 </style>

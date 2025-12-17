@@ -139,3 +139,15 @@ export function getConfirmationStatus(eventId) {
     params: { eventId }
   })
 }
+
+/**
+ * 获取我的事件（包含进行中和历史事件）
+ * @param type all-全部, created-我发起的, joined-我参与的
+ */
+export function getMyEvents(type = 'all', pageNum = 1, pageSize = 20) {
+  return request({
+    url: '/event/my-events',
+    method: 'get',
+    params: { type, pageNum, pageSize }
+  })
+}

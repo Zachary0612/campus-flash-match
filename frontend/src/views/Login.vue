@@ -1,33 +1,35 @@
 <template>
   <div class="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
-    <!-- Background decorations -->
-    <div class="absolute top-0 left-0 w-full h-full overflow-hidden -z-10">
-      <div class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-primary/30 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
-      <div class="absolute top-[-10%] right-[-10%] w-96 h-96 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
-      <div class="absolute bottom-[-20%] left-[20%] w-96 h-96 bg-pink-300 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-4000"></div>
+    <!-- Background image -->
+    <div class="absolute top-0 left-0 w-full h-full -z-10">
+      <img src="/photo1.jpg" alt="background" class="w-full h-full object-cover" />
     </div>
 
-    <div class="glass p-8 rounded-3xl shadow-2xl w-full max-w-md animate-fade-in backdrop-blur-xl bg-white/40 border-white/20">
-      <div class="text-center mb-8 animate-slide-up" style="animation-delay: 0.1s">
-        <h1 class="text-4xl font-extrabold text-gray-800 mb-2 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600">校园闪配</h1>
-        <p class="text-gray-600 font-medium">校园拼单约伴平台</p>
+    <div class="glass p-10 rounded-[2rem] shadow-glass w-full max-w-md animate-fade-in backdrop-blur-xl bg-white/30 border-white/40">
+      <div class="text-center mb-10 animate-slide-up" style="animation-delay: 0.1s">
+        <h1 class="text-5xl font-black text-gray-800 mb-3 tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600 drop-shadow-sm">校园闪配</h1>
+        <p class="text-gray-600 font-bold text-lg tracking-wide opacity-80">校园拼单约伴平台</p>
       </div>
       
       <div class="flex justify-center mb-8 animate-slide-up" style="animation-delay: 0.2s">
-        <el-radio-group v-model="loginMode" size="large" class="shadow-sm">
-          <el-radio-button label="studentId">学号登录</el-radio-button>
-          <el-radio-button label="email">邮箱登录</el-radio-button>
+        <el-radio-group v-model="loginMode" size="large" class="!bg-white/20 !p-1 !rounded-full shadow-inner">
+          <el-radio-button label="studentId" class="!rounded-full overflow-hidden">
+            <span class="flex items-center gap-2 px-2"><el-icon><User /></el-icon> 学号登录</span>
+          </el-radio-button>
+          <el-radio-button label="email" class="!rounded-full overflow-hidden">
+             <span class="flex items-center gap-2 px-2"><el-icon><Message /></el-icon> 邮箱登录</span>
+          </el-radio-button>
         </el-radio-group>
       </div>
 
-      <el-form :model="loginForm" :rules="rules" ref="loginFormRef" label-width="0" class="animate-slide-up" style="animation-delay: 0.3s">
+      <el-form :model="loginForm" :rules="rules" ref="loginFormRef" label-width="0" class="animate-slide-up space-y-6" style="animation-delay: 0.3s">
         <el-form-item prop="account">
           <el-input
             v-model="loginForm.account"
             :placeholder="accountPlaceholder"
             size="large"
             :prefix-icon="User"
-            class="custom-input"
+            class="glass-input h-12"
           />
         </el-form-item>
         
@@ -40,7 +42,7 @@
             :prefix-icon="Lock"
             show-password
             @keyup.enter="handleLogin"
-            class="custom-input"
+            class="glass-input h-12"
           />
         </el-form-item>
         
@@ -48,19 +50,19 @@
           <el-button
             type="primary"
             size="large"
-            class="w-full !rounded-xl !h-12 !text-lg !font-semibold shadow-lg hover:shadow-primary/50 transition-all duration-300 hover:-translate-y-0.5"
+            class="w-full !rounded-xl !h-12 !text-lg !font-bold shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 transition-all duration-300 hover:-translate-y-1"
             :loading="loading"
             @click="handleLogin"
           >
-            登录
+            登 录
           </el-button>
         </el-form-item>
       </el-form>
       
-      <div class="text-center mt-6 animate-slide-up" style="animation-delay: 0.4s">
-        <span class="text-gray-600">还没有账号？</span>
-        <router-link to="/register" class="text-primary font-bold hover:text-purple-600 ml-2 transition-colors">
-          立即注册
+      <div class="text-center mt-8 animate-slide-up flex items-center justify-center gap-2" style="animation-delay: 0.4s">
+        <span class="text-gray-500 font-medium">还没有账号？</span>
+        <router-link to="/register" class="text-primary font-extrabold hover:text-purple-600 transition-colors flex items-center group">
+          立即注册 <el-icon class="ml-0.5 group-hover:translate-x-1 transition-transform"><ArrowRight /></el-icon>
         </router-link>
       </div>
     </div>
@@ -72,7 +74,7 @@ import { ref, reactive, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useWebSocketStore } from '@/stores/websocket'
-import { User, Lock } from '@element-plus/icons-vue'
+import { User, Lock, Message, ArrowRight } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -143,49 +145,21 @@ const handleLogin = async () => {
 </script>
 
 <style scoped>
-.custom-input :deep(.el-input__wrapper) {
-  border-radius: 12px;
-  padding: 8px 15px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  background-color: rgba(255, 255, 255, 0.8);
-  transition: all 0.3s;
+/* Radio Button Styles */
+:deep(.el-radio-button__inner) {
+  border: none !important;
+  background: transparent !important;
+  border-radius: 9999px !important;
+  color: #666;
+  padding: 8px 24px;
+  transition: all 0.3s ease;
+  font-weight: 600;
+  box-shadow: none !important;
 }
 
-.custom-input :deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 4px 15px rgba(64, 158, 255, 0.2) !important;
-  border-color: var(--el-color-primary);
-  background-color: #fff;
-}
-
-.custom-input :deep(.el-input__inner) {
-  height: 32px;
-}
-
-.animate-blob {
-  animation: blob 7s infinite;
-}
-
-.animation-delay-2000 {
-  animation-delay: 2s;
-}
-
-.animation-delay-4000 {
-  animation-delay: 4s;
-}
-
-@keyframes blob {
-  0% {
-    transform: translate(0px, 0px) scale(1);
-  }
-  33% {
-    transform: translate(30px, -50px) scale(1.1);
-  }
-  66% {
-    transform: translate(-20px, 20px) scale(0.9);
-  }
-  100% {
-    transform: translate(0px, 0px) scale(1);
-  }
+:deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
+  background: white !important;
+  color: var(--el-color-primary) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
 }
 </style>

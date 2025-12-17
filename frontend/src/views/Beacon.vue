@@ -27,15 +27,63 @@
           </template>
         </el-alert>
         
+        <!-- 我的信标 -->
+        <div v-if="myBeacons.length > 0" class="mb-8">
+          <h3 class="text-lg font-bold text-gray-700 mb-4 flex items-center">
+            <el-icon class="mr-2 text-primary"><User /></el-icon>
+            我发布的信标
+            <el-tag size="small" type="warning" class="ml-2">{{ myBeacons.length }}</el-tag>
+          </h3>
+          <div class="beacon-grid">
+            <div
+              v-for="(beacon, index) in myBeacons"
+              :key="'my-' + beacon.eventId"
+              class="beacon-card bg-gradient-to-br from-orange-50 to-yellow-50 backdrop-blur-sm rounded-xl p-5 border-2 border-orange-200 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group"
+              :style="{ animationDelay: `${index * 0.05}s` }"
+            >
+              <div class="beacon-header flex justify-between items-start mb-3">
+                <div class="flex items-center">
+                  <div class="w-2 h-2 rounded-full bg-orange-500 mr-2 animate-pulse"></div>
+                  <el-tag type="warning" size="small" effect="dark" class="!rounded-full">我的信标</el-tag>
+                </div>
+                <el-tag :type="beacon.status === 'active' ? 'success' : 'info'" size="small" effect="plain">
+                  {{ beacon.status === 'active' ? '进行中' : '已结束' }}
+                </el-tag>
+              </div>
+              
+              <div class="beacon-content">
+                <p class="location-desc text-gray-800 font-bold text-lg mb-3 leading-relaxed">{{ beacon.title }}</p>
+                <div class="beacon-info flex flex-wrap gap-3 text-sm text-gray-600">
+                  <div class="info-item flex items-center bg-white/80 px-3 py-1.5 rounded-lg">
+                    <el-icon class="mr-1 text-orange-500"><Clock /></el-icon>
+                    <span>{{ formatTime(beacon.createTime) }}</span>
+                  </div>
+                  <div class="info-item flex items-center bg-white/80 px-3 py-1.5 rounded-lg">
+                    <el-icon class="mr-1 text-blue-500"><Timer /></el-icon>
+                    <span>{{ beacon.expireMinutes }}分钟</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 附近信标 -->
+        <h3 class="text-lg font-bold text-gray-700 mb-4 flex items-center">
+          <el-icon class="mr-2 text-warning"><Location /></el-icon>
+          附近信标
+        </h3>
+        
         <div v-if="loading" class="text-center py-16">
           <el-icon class="is-loading text-primary" :size="40"><Loading /></el-icon>
         </div>
         
-        <div v-else-if="beaconList.length === 0" class="text-center py-16 text-gray-500">
-          <div class="bg-gray-100/50 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4">
-            <el-icon :size="40" class="text-gray-400"><DocumentDelete /></el-icon>
+        <div v-else-if="beaconList.length === 0" class="text-center py-12 text-gray-500 bg-white/30 rounded-xl">
+          <div class="bg-gray-100/50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <el-icon :size="36" class="text-gray-400"><DocumentDelete /></el-icon>
           </div>
-          <p class="text-lg font-medium">暂无信标信息</p>
+          <p class="text-base font-medium">附近暂无信标</p>
+          <p class="text-sm text-gray-400 mt-1">快去发布一个吧~</p>
         </div>
         
         <div v-else class="beacon-grid">
@@ -102,7 +150,15 @@
             <span class="ml-2 text-gray-500">分钟</span>
           </el-form-item>
           
-          <el-form-item label="校园点位" prop="pointId">
+          <el-form-item label="位置选择">
+            <el-radio-group v-model="locationMode" class="mb-3">
+              <el-radio label="campus" border>选择校园点位</el-radio>
+              <el-radio label="map" border>地图选点</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          
+          <!-- 校园点位选择 -->
+          <el-form-item v-if="locationMode === 'campus'" label="校园点位" prop="pointId">
             <el-select v-model="beaconForm.pointId" placeholder="请选择点位" class="w-full custom-select">
               <el-option 
                 v-for="point in campusPoints" 
@@ -111,6 +167,18 @@
                 :value="point.id" 
               />
             </el-select>
+          </el-form-item>
+          
+          <!-- 地图选点 -->
+          <el-form-item v-if="locationMode === 'map'" label="地图位置">
+            <MapPicker 
+              v-model:location="beaconForm.mapLocation" 
+              @change="handleMapLocationSelect"
+            />
+            <div v-if="beaconForm.mapLocation" class="mt-2 text-sm text-gray-500">
+              <el-icon class="mr-1"><Location /></el-icon>
+              {{ beaconForm.mapLocation.address || '已选择位置' }}
+            </div>
           </el-form-item>
         </el-form>
         
@@ -131,15 +199,17 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import Layout from '@/components/Layout.vue'
-import { getNearbyEvents } from '@/api/event'
+import MapPicker from '@/components/MapPicker.vue'
+import { getNearbyEvents, getMyEvents } from '@/api/event'
 import { publishBeacon, reportBeacon } from '@/api/beacon'
 import { getCampusPoints } from '@/api/user'
 import dayjs from 'dayjs'
-import { Plus, Loading, DocumentDelete, Clock, Location, LocationInformation, InfoFilled, Warning } from '@element-plus/icons-vue'
+import { Plus, Loading, DocumentDelete, Clock, Location, LocationInformation, InfoFilled, Warning, User, Timer } from '@element-plus/icons-vue'
 
 const loading = ref(false)
 const publishLoading = ref(false)
 const beaconList = ref([])
+const myBeacons = ref([])
 const publishDialogVisible = ref(false)
 const beaconFormRef = ref(null)
 const campusPoints = ref([])
@@ -147,17 +217,22 @@ const campusPoints = ref([])
 const beaconForm = reactive({
   locationDesc: '',
   expireMinutes: 120,
-  pointId: null
+  pointId: null,
+  mapLocation: null
 })
+
+// 位置选择方式：campus-校园点位，map-地图选点
+const locationMode = ref('campus')
 
 const beaconRules = {
   locationDesc: [{ required: true, message: '请输入位置描述', trigger: 'blur' }],
-  expireMinutes: [{ required: true, message: '请输入有效时长', trigger: 'blur' }],
-  pointId: [{ required: true, message: '请选择校园点位', trigger: 'change' }]
+  expireMinutes: [{ required: true, message: '请输入有效时长', trigger: 'blur' }]
+  // pointId 和 mapLocation 二选一，在提交时验证
 }
 
 onMounted(() => {
   loadBeacons()
+  loadMyBeacons()
   loadCampusPoints()
 })
 
@@ -172,6 +247,18 @@ const loadBeacons = async () => {
     console.error('加载信标失败:', error)
   } finally {
     loading.value = false
+  }
+}
+
+const loadMyBeacons = async () => {
+  try {
+    const res = await getMyEvents('created', 1, 50)
+    if (res.code === 200) {
+      // 过滤出信标类型的事件
+      myBeacons.value = (res.data || []).filter(e => e.eventType === 'beacon')
+    }
+  } catch (error) {
+    console.error('加载我的信标失败:', error)
   }
 }
 
@@ -190,11 +277,23 @@ const showPublishDialog = () => {
   beaconForm.locationDesc = ''
   beaconForm.expireMinutes = 120
   beaconForm.pointId = null
+  beaconForm.mapLocation = null
+  locationMode.value = 'campus'
   publishDialogVisible.value = true
 }
 
 const handlePublish = async () => {
   if (!beaconFormRef.value) return
+  
+  // 验证位置信息
+  if (locationMode.value === 'campus' && !beaconForm.pointId) {
+    ElMessage.warning('请选择校园点位')
+    return
+  }
+  if (locationMode.value === 'map' && !beaconForm.mapLocation) {
+    ElMessage.warning('请在地图上选择位置')
+    return
+  }
   
   await beaconFormRef.value.validate(async (valid) => {
     if (valid) {
@@ -213,6 +312,12 @@ const handlePublish = async () => {
       }
     }
   })
+}
+
+// 地图位置选择回调
+const handleMapLocationSelect = (location) => {
+  beaconForm.mapLocation = location
+  console.log('已选择地图位置:', location)
 }
 
 const handleReport = async (eventId) => {

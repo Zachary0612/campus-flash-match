@@ -49,9 +49,14 @@ public class BeaconServiceImpl implements BeaconService {
             eventDTO.setDescription(dto.getDescription());
         }
 
-        // 3. 扩展信息：存储信标具体位置描述
+        // 3. 扩展信息：存储信标具体位置描述和地图位置
         java.util.Map<String, Object> extMeta = new java.util.HashMap<>();
         extMeta.put("locationDesc", dto.getLocationDesc());
+        
+        // 如果使用地图选点，将位置信息存入 extMeta
+        if (dto.getMapLocation() != null) {
+            extMeta.put("mapLocation", dto.getMapLocation());
+        }
         eventDTO.setExtMeta(extMeta);
 
         // 4. 调用事件Service发布信标（本质是创建事件）
