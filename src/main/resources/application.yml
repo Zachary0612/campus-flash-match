@@ -24,7 +24,6 @@ spring:
       database: 0
       timeout: 3000ms
   # RabbitMQ配置
-  rabbitmq:
     host: localhost
     port: 5672
     username: zachary

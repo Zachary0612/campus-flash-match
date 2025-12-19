@@ -11,22 +11,11 @@
         <p class="text-gray-600 font-bold text-lg tracking-wide opacity-80">校园拼单约伴平台</p>
       </div>
       
-      <div class="flex justify-center mb-8 animate-slide-up" style="animation-delay: 0.2s">
-        <el-radio-group v-model="loginMode" size="large" class="!bg-white/20 !p-1 !rounded-full shadow-inner">
-          <el-radio-button label="studentId" class="!rounded-full overflow-hidden">
-            <span class="flex items-center gap-2 px-2"><el-icon><User /></el-icon> 学号登录</span>
-          </el-radio-button>
-          <el-radio-button label="email" class="!rounded-full overflow-hidden">
-             <span class="flex items-center gap-2 px-2"><el-icon><Message /></el-icon> 邮箱登录</span>
-          </el-radio-button>
-        </el-radio-group>
-      </div>
-
-      <el-form :model="loginForm" :rules="rules" ref="loginFormRef" label-width="0" class="animate-slide-up space-y-6" style="animation-delay: 0.3s">
+      <el-form :model="loginForm" :rules="rules" ref="loginFormRef" label-width="0" class="animate-slide-up space-y-6" style="animation-delay: 0.2s">
         <el-form-item prop="account">
           <el-input
             v-model="loginForm.account"
-            :placeholder="accountPlaceholder"
+            placeholder="请输入学号或邮箱"
             size="large"
             :prefix-icon="User"
             class="glass-input h-12"
@@ -70,11 +59,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useWebSocketStore } from '@/stores/websocket'
-import { User, Lock, Message, ArrowRight } from '@element-plus/icons-vue'
+import { User, Lock, ArrowRight } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -83,23 +72,18 @@ const wsStore = useWebSocketStore()
 const loginFormRef = ref(null)
 const loading = ref(false)
 
-const loginMode = ref('studentId')
-
 const loginForm = reactive({
   account: '',
   password: ''
 })
 
-const accountPlaceholder = computed(() => 
-  loginMode.value === 'studentId' ? '请输入学号' : '请输入邮箱'
-)
-
 const validateAccount = (rule, value, callback) => {
   if (!value) {
-    callback(new Error(loginMode.value === 'studentId' ? '请输入学号' : '请输入邮箱'))
+    callback(new Error('请输入学号或邮箱'))
     return
   }
-  if (loginMode.value === 'email') {
+  // 如果包含@符号，验证邮箱格式
+  if (value.includes('@')) {
     const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/
     if (!emailRegex.test(value)) {
       callback(new Error('邮箱格式不正确'))
@@ -108,10 +92,6 @@ const validateAccount = (rule, value, callback) => {
   }
   callback()
 }
-
-watch(loginMode, () => {
-  loginForm.account = ''
-})
 
 const rules = {
   account: [
