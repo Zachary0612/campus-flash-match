@@ -86,16 +86,20 @@ public class UserServiceImpl implements UserService {
         
         // 支持多个IP前缀校验
         if (!isLocalIp) {
-            String[] prefixes = campusIpPrefixes.split(",");
-            boolean allowed = false;
-            for (String prefix : prefixes) {
-                if (clientIp.startsWith(prefix.trim())) {
-                    allowed = true;
-                    break;
+            if (campusIpPrefixes == null || campusIpPrefixes.trim().isEmpty() || campusIpPrefixes.trim().equals("*")) {
+                isLocalIp = true;
+            } else {
+                String[] prefixes = campusIpPrefixes.split(",");
+                boolean allowed = false;
+                for (String prefix : prefixes) {
+                    if (clientIp.startsWith(prefix.trim())) {
+                        allowed = true;
+                        break;
+                    }
                 }
-            }
-            if (!allowed) {
-                throw new BusinessException("仅支持校园IP注册，当前IP: " + clientIp + "，允许的前缀: " + campusIpPrefixes);
+                if (!allowed) {
+                    throw new BusinessException("仅支持校园IP注册，当前IP: " + clientIp + "，允许的前缀: " + campusIpPrefixes);
+                }
             }
         }
         
