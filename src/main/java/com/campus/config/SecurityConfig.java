@@ -68,6 +68,10 @@ public class SecurityConfig {
                     "/api/user/register",
                     "/api/user/email-code",
                     "/api/user/login",
+                    // 兼容反向代理未携带 /api 前缀的路由
+                    "/user/register",
+                    "/user/email-code",
+                    "/user/login",
                     "/api/user/points",  // 校园点位列表
                     "/api/event/detail",  // 事件详情（可匿名查看）
                     "/api/event/search",  // 事件搜索（可匿名查看）

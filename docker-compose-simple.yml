@@ -12,8 +12,8 @@ services:
     restart: unless-stopped
     environment:
       # 数据库配置 - 连接宿主机的 PostgreSQL
-      SPRING_DATASOURCE_URL: jdbc:postgresql://host.docker.internal:5432/postgres
-      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_URL: jdbc:postgresql://host.docker.internal:5432/campus_flash_match
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-campus_user}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-123456}
       # Redis配置 - 连接宿主机的 Redis
       SPRING_DATA_REDIS_HOST: host.docker.internal
