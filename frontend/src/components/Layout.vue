@@ -1,8 +1,10 @@
 <template>
   <div class="layout-container min-h-screen flex flex-col relative font-sans">
     <!-- Background image -->
-    <div class="fixed inset-0 -z-10">
-      <img src="/photo2.png" alt="background" class="w-full h-full object-cover" />
+    <div
+        class="fixed inset-0 -z-10 bg-cover bg-center"
+        style="background-image: url('https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=2000&q=80')"
+    >
       <div class="absolute inset-0 bg-white/10 backdrop-blur-[1px]"></div>
     </div>
     <!-- 顶部导航栏 -->
