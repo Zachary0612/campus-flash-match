@@ -1,8 +1,10 @@
 <template>
   <div class="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
     <!-- Background image -->
-    <div class="absolute top-0 left-0 w-full h-full -z-10">
-      <img src="/photo1.jpg" alt="background" class="w-full h-full object-cover" />
+    <div
+      class="absolute top-0 left-0 w-full h-full -z-10 bg-cover bg-center"
+      style="background-image: url('https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?auto=format&fit=crop&w=1600&q=80')"
+    >
     </div>
 
     <div class="glass p-8 rounded-[2rem] shadow-glass w-full max-w-md animate-fade-in backdrop-blur-xl bg-white/30 border-white/40 my-8">
