@@ -18,6 +18,7 @@ services:
       # Redis配置 - 连接宿主机的 Redis
       SPRING_DATA_REDIS_HOST: host.docker.internal
       SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-123456}
       # RabbitMQ配置 - 连接宿主机的 RabbitMQ
       SPRING_RABBITMQ_HOST: host.docker.internal
       SPRING_RABBITMQ_PORT: 5672
@@ -44,7 +45,7 @@ services:
     container_name: campus-frontend
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "3000:80"
     networks:
       - campus-network
     depends_on:
