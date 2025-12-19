@@ -33,6 +33,11 @@ public class CampusIpInterceptor implements HandlerInterceptor {
             return true;
         }
         
+        // 如果配置为 "*" 或为空，则直接放行
+        if (campusIpPrefixes == null || campusIpPrefixes.trim().isEmpty() || campusIpPrefixes.trim().equals("*")) {
+            return true;
+        }
+        
         // 校验IP前缀（支持多个前缀，用逗号分隔）
         String[] prefixes = campusIpPrefixes.split(",");
         boolean allowed = false;
